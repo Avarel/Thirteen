@@ -1,0 +1,8 @@
+[package]
+name = "thirteen_server"
+version = "0.1.0"
+authors = ["Avarel <avarelpm@gmail.com>"]
+
+[dependencies]
+websocket = "0.20.2"
+rand = "0.4.2"
