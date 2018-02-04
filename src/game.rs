@@ -3,38 +3,34 @@ use cards::Card;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Pattern {
-    Repeat(u8),       // Repeats (ie: [3, 3]) of 1..4
-    Sequence(u8),     // Sequence (ie: [3, 4, 5...]) of a certain length >= 3
-    SequencePair(u8), // Sequence of pairs (ie: [3, 3, 4, 4, 5, 5]) of a certain length >= 3
+    Repeat(u8),      
+    Sequence(u8),    
+    SequencePair(u8), 
     Invalid           // Invalid play
 }
 
 impl Pattern {
-    // pub fn valid(top_card: Card, current: Pattern, attempt: Pattern) -> bool {
-    //     match current {
-    //         Pattern::Repeat(1) => {
-    //             top_card.vc_value() == 13 && attempt == Pattern::Repeat(4)
-    //                 || attempt == Pattern::SequencePair(4)
-    //         }
-    //         Pattern::Repeat(2) => top_card.vc_value() == 13 && attempt == Pattern::SequencePair(5),
-    //         _ => current == attempt,
-    //     }
-    // }
-
+    /// Check for a sequence of pairs.
+    /// ie: [3, 3, 4, 4, 5, 5] of a certain length >= 3 (6 cards)
     pub fn check_sequence_pair(source: &[Card]) -> bool {
         source.len() >= 6 &&
             source.chunks(2).all(|pair| pair[0].vc_value() == pair[1].vc_value()) 
-            && Self::check_sequence(&source.chunks(2).map(|x| x[1]).collect::<Vec<_>>())
+            && Self::check_sequence(&source.iter().step_by(2).cloned().collect::<Vec<_>>())
     }
 
+    /// Check for n-repeats.
+    /// ie: [3, 3] of 1..4
+    /// Can also represent single patterns
     pub fn check_sequence(source: &[Card]) -> bool {
         source.len() >= 3 
             && source.iter().enumerate().all(|(index, card)| card.vc_value() == source[0].vc_value() + index as u8) 
     }
 
+    /// Check for a sequence. 
+    /// ie: [3, 4, 5...] of a certain length >= 3
     pub fn check_repeat(source: &[Card]) -> bool {
         source.len() >= 1 
-            && source.iter().all(|x| x.value == source[0].value)
+            && source.iter().all(|x| x.vc_value() == source[0].vc_value())
     }
 
     /// Retrn Some(Pattern) if valid, else None
@@ -56,6 +52,45 @@ impl fmt::Display for Pattern {
             Pattern::Repeat(4) | Pattern::SequencePair(_) => write!(f, "Bomb"),
             Pattern::Sequence(x) => write!(f, "Sequence of {}", x),
             _ => write!(f, "Invalid")
+        }
+    }
+}
+
+pub struct Game {
+    pub history: Vec<Play>
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Play {
+    pattern: Pattern,
+    stack: Vec<Card>
+}
+
+impl<'a> From<&'a [Card]> for Play {
+    #[inline]
+    fn from(source: &'a [Card]) -> Play {
+        let mut stack = source.to_vec();
+        stack.sort();
+
+        Play {
+            pattern: Pattern::of(&stack),
+            stack
+        }
+    }
+}
+
+impl Play {
+    #[inline]
+    pub fn top_card(&self) -> &Card {
+        self.stack.last().unwrap()
+    }
+
+    pub fn gt(&self, target: &Self) -> bool {
+        match self.pattern {
+            Pattern::Repeat(4) => target.pattern == Pattern::Repeat(1) && target.top_card().vc_value() == 12,
+            Pattern::SequencePair(n) => target.pattern == Pattern::Repeat(n - 2) && target.top_card().vc_value() == 12,
+            Pattern::Invalid => false,
+            p => p == target.pattern && self.top_card() > target.top_card()
         }
     }
 }
