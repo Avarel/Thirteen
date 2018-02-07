@@ -19,7 +19,9 @@ pub fn shuffled_deck() -> [Card; 52] {
 /// Return a new sorted deck of cards.
 pub fn new_deck() -> [Card; 52] {
     let mut deck = [Card(0); 52];
-    for i in 0..52 { deck[i].0 = i as u8 }
+    for i in 0..52 {
+        deck[i].0 = i as u8
+    }
     deck
 }
 
@@ -36,20 +38,23 @@ pub struct Card(u8);
 
 impl Card {
     #[inline]
-    /// Construct a Card from a value and suit. This 
+    /// Construct a Card from a value and suit. This
     /// makes sure that the value of the card is within
     /// valid bounds.
-    /// 
+    ///
     /// Returns None if invalid, returns Some(Card) otherwise.
     pub fn new(value: u8, suit: Suit) -> Option<Card> {
-        if value > 12 { None }
-        else { Some(Self::new_unchecked(value, suit)) }
+        if value > 12 {
+            None
+        } else {
+            Some(Self::new_unchecked(value, suit))
+        }
     }
 
     #[inline]
     /// Construct a Card from a value and suit. This
     /// does not check that the value is within valid
-    /// bounds. If the value is not between `0..13` 
+    /// bounds. If the value is not between `0..13`
     /// (last exlusive), then the Card will represent
     /// another Card.
     pub fn new_unchecked(value: u8, suit: Suit) -> Card {
@@ -57,7 +62,7 @@ impl Card {
             Suit::Spades => value,
             Suit::Clubs => value + 13,
             Suit::Diamonds => value + 26,
-            Suit::Hearts =>  value + 39,
+            Suit::Hearts => value + 39,
         })
     }
 
@@ -67,7 +72,7 @@ impl Card {
             Suit::Spades => self.0,
             Suit::Clubs => self.0 - 13,
             Suit::Diamonds => self.0 - 26,
-            Suit::Hearts =>  self.0 - 39,
+            Suit::Hearts => self.0 - 39,
         }
     }
 
@@ -78,7 +83,7 @@ impl Card {
             13..26 => Suit::Clubs,
             26..39 => Suit::Diamonds,
             39..52 => Suit::Hearts,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -87,7 +92,7 @@ impl Card {
         match self.face_value() {
             0 => 11,
             1 => 12,
-            x => x - 2
+            x => x - 2,
         }
     }
 
@@ -100,8 +105,11 @@ impl Card {
     /// Safely convert an id to a card.
     #[inline]
     pub fn from_id(id: u8) -> Option<Card> {
-        if id < 52 { Some(Card(id)) }
-        else { None }
+        if id < 52 {
+            Some(Card(id))
+        } else {
+            None
+        }
     }
 }
 
@@ -120,7 +128,11 @@ impl fmt::Display for Card {
 impl cmp::Ord for Card {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         let ord = self.vc_value().cmp(&other.vc_value());
-        if ord == cmp::Ordering::Equal { self.suit().cmp(&other.suit()) } else { ord }
+        if ord == cmp::Ordering::Equal {
+            self.suit().cmp(&other.suit())
+        } else {
+            ord
+        }
     }
 }
 

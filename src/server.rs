@@ -1,79 +1,53 @@
-use std::fmt::Debug;
-
-use websocket::message::{Message, OwnedMessage};
-use websocket::server::InvalidConnection;
-use websocket::async::Server;
-
-use tokio_core::reactor::{Handle, Core};
-use websocket::futures::{Future, Sink, Stream};
+use std::thread;
+use websocket::OwnedMessage;
+use websocket::sync::Server;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
 
 pub fn start_server() {
-	let mut core = Core::new().unwrap();
-	let handle = core.handle();
-
 	// bind to the server
-	let server = Server::bind("127.0.0.1:2794", &handle).unwrap();
+	let server = Server::bind("127.0.0.1:2794").unwrap();
 
-	// time to build the server's future
-	// this will be a struct containing everything the server is going to do
+	for request in server.filter_map(Result::ok) {
+		// Spawn a new thread for each connection.
+		thread::spawn(move || {
+			if !request.protocols().contains(&PROTOCOL.to_string()) {
+				request.reject().unwrap();
+				return;
+			}
 
-	// a stream of incoming connections
-	let f = server.incoming()
-        // we don't wanna save the stream if it drops
-        .map_err(|InvalidConnection { error, .. }| error)
-        .for_each(|(upgrade, addr)| {
-            println!("Got a connection from: {}", addr);
-            // check if it has the protocol we want
-            if !upgrade.protocols().iter().any(|s| s == PROTOCOL) {
-                // reject it if it doesn't
-                spawn_future(upgrade.reject(), "Upgrade Rejection", &handle);
-                return Ok(());
-            }
+			let mut client = request.use_protocol(PROTOCOL).accept().unwrap();
 
-            // accept the request to be a ws connection if it does
-            let f = upgrade
-                .use_protocol(PROTOCOL)
-                .accept()
-                // send a greeting!
-                .and_then(|(s, _)| s.send(Message::text("Connected to the Thirteen server!").into()))
-                // simple echo server impl
-                .and_then(|s| {
-                    let (sink, stream) = s.split();
-                    stream
-                        .take_while(|m| Ok(!m.is_close()))
-                        .filter_map(|m| {
-                            println!("Message from Client: {:?}", m);
-                            match m {
-                                OwnedMessage::Ping(p) => Some(OwnedMessage::Pong(p)),
-                                OwnedMessage::Pong(_) => None,
-                                OwnedMessage::Text(s) => {
-                                    let mut buf = s.to_owned();
-                                    buf.push_str(" was a very cool message");
-                                    Some(OwnedMessage::Text(buf))
-                                }
-                                _ => Some(m),
-                            }
-                        })
-                        .forward(sink)
-                        .and_then(|(_, sink)| {
-                            sink.send(OwnedMessage::Close(None))
-                        })
-                });
+			let ip = client.peer_addr().unwrap();
 
-            spawn_future(f, "Client Status", &handle);
-            Ok(())
-        });
+			println!("Connection from {}", ip);
 
-    println!("Starting server. Beep boop.");
-	core.run(f).unwrap();
-}
+			let message = OwnedMessage::Text(String::from("Connected to server!"));
+			client.send_message(&message).unwrap();
 
-fn spawn_future<F, I, E>(f: F, desc: &'static str, handle: &Handle)
-	where F: Future<Item = I, Error = E> + 'static,
-	      E: Debug
-{
-	handle.spawn(f.map_err(move |e| println!("{}: '{:?}'", desc, e))
-	              .map(move |_| println!("{}: Finished.", desc)));
+			let (mut receiver, mut sender) = client.split().unwrap();
+
+			for message in receiver.incoming_messages() {
+				let message = message.unwrap();
+
+				match message {
+					OwnedMessage::Close(_) => {
+						let message = OwnedMessage::Close(None);
+						sender.send_message(&message).unwrap();
+						println!("Client {} disconnected", ip);
+						return;
+					}
+					OwnedMessage::Ping(ping) => {
+						let message = OwnedMessage::Pong(ping);
+						sender.send_message(&message).unwrap();
+					}
+					OwnedMessage::Text(s) => {
+						let buf = format!("I concur! \"{}\" to you too!", s);
+						sender.send_message(&OwnedMessage::Text(buf)).unwrap();
+					}
+					_ => sender.send_message(&message).unwrap(),
+				}
+			}
+		});
+	}
 }
