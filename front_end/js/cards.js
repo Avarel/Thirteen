@@ -273,6 +273,7 @@ let cards = (function () {
                     top -= 1;
                     left -= 1;
                 }
+                this[i].rotate(360 - this.angle);
                 this[i].targetTop = top;
                 this[i].targetLeft = left;
             }
@@ -308,19 +309,23 @@ let cards = (function () {
 
         calcPosition(options) {
             options = options || {};
-            let factor = this.length - 1;
+            let paddingCount = this.length - 1;
             let angle = toRadians(this.angle);
             let width = opt.cardSize.width +
-                Math.abs(factor * opt.cardSize.padding * Math.cos(angle));
+                Math.abs(paddingCount * opt.cardSize.padding * Math.cos(angle));
             let height = opt.cardSize.height + 
-                Math.abs(factor * opt.cardSize.padding * Math.sin(angle));
+                Math.abs(paddingCount * opt.cardSize.padding * Math.sin(angle));
             let left = Math.round(this.x - width / 2);
-            let top = Math.round(this.y - height / 2);
+            let top = Math.round(this.y + height / 2);
             console.log(this.y, height, top);
+
+            let xFactor = this.angle > 90 && this.angle < 270 ? paddingCount * opt.cardSize.padding * -Math.cos(toRadians(this.angle)) : 0;
+            let yFactor = this.angle > 180 ? paddingCount * opt.cardSize.padding * Math.sin(toRadians(this.angle)) : 0;
+
             for (let i = 0; i < this.length; i++) {
                 this[i].rotate(360 - this.angle);
-                this[i].targetTop = top - i * opt.cardSize.padding * Math.sin(toRadians(this.angle));
-                this[i].targetLeft = left + i * opt.cardSize.padding * Math.cos(toRadians(this.angle));
+                this[i].targetTop = top + yFactor - i * opt.cardSize.padding * Math.sin(toRadians(this.angle));
+                this[i].targetLeft = left + xFactor + i * opt.cardSize.padding * Math.cos(toRadians(this.angle));
             }
         }
 

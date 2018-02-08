@@ -13,7 +13,7 @@ deck.render({ immediate: true });
 
 //Now lets create a couple of hands, one face down, one face up.
 let upperhand = new cards.Hand({ faceUp: false, y: 60 });
-let lowerhand = new cards.Hand({ faceUp: true, y: 500, angle: 90 });
+let lowerhand = new cards.Hand({ faceUp: true, y: 360, angle: 90 });
 
 //Lets add a discard pile
 let discardPile = new cards.Deck({ faceUp: true });
