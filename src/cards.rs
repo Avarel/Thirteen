@@ -68,21 +68,16 @@ impl Card {
 
     /// Represents the face value of the card.
     pub fn face_value(&self) -> u8 {
-        match self.suit() {
-            Suit::Spades => self.0,
-            Suit::Clubs => self.0 - 13,
-            Suit::Diamonds => self.0 - 26,
-            Suit::Hearts => self.0 - 39,
-        }
+        self.0 % 13
     }
 
     /// Represents the suit of the card.
     pub fn suit(&self) -> Suit {
-        match self.0 {
-            0..13 => Suit::Spades,
-            13..26 => Suit::Clubs,
-            26..39 => Suit::Diamonds,
-            39..52 => Suit::Hearts,
+        match self.0 / 13 {
+            0 => Suit::Spades,
+            1 => Suit::Clubs,
+            2 => Suit::Diamonds,
+            3 => Suit::Hearts,
             _ => unreachable!(),
         }
     }

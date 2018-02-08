@@ -1,14 +1,20 @@
+function toRadians(angle) {
+    return angle * (Math.PI / 180);
+}
+
 let cards = (function () {
     let opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 500,
         table: 'body',
         cardback: 'red',
-        acesHigh: false,
         cardsUrl: 'img/cards.png',
         blackJoker: false,
         redJoker: false
     };
+
+    let diagonal = Math.round(Math.sqrt(Math.pow(opt.cardSize.width, 2) + Math.pow(opt.cardSize.height, 2)));
+    let diagonalAngle = Math.atan(opt.cardSize.height / opt.cardSize.width);
 
     let zIndexCounter = 1;
     let all = []; //All the cards created.
@@ -37,11 +43,10 @@ let cards = (function () {
             $(opt.table).css('position', 'relative');
         }
         for (let i = 0; i < 52; i++) {
-            all.push(new Card(i, opt.table));
+            all.push(new Card(i));
         }
 
         $('.card').click(mouseEvent);
-        shuffle(all);
     }
 
     function shuffle(deck) {
@@ -58,7 +63,7 @@ let cards = (function () {
     }
 
     class Card {
-        constructor(id, table) {
+        constructor(id) {
             this.id = id;
             this.shortName = this.suit() + this.rank();
             this.name = this.suit().toUpperCase() + this.rank();
@@ -69,12 +74,19 @@ let cards = (function () {
                 "background-image": 'url(' + opt.cardsUrl + ')',
                 position: 'absolute',
                 cursor: 'pointer'
-            }).addClass('card').data('card', this).appendTo($(table));
+            }).addClass('card').data('card', this).appendTo($(opt.table));
             this.showCard();
             this.moveToFront();
         }
 
-        static from(suit, rank, table) {
+        static fromID(id) {
+            if (id < 0 || id >= 52) {
+                throw "Illegal id";
+            }
+            return all[id];
+        }
+
+        static from(suit, rank) {
             if (0 > this.id || this.id >= 13) {
                 throw "Illegal rank";
             }
@@ -135,14 +147,14 @@ let cards = (function () {
             let rank = this.rank();
             xpos = -(rank + 1) * opt.cardSize.width;
             ypos = -offsets[this.suit()] * opt.cardSize.height;
-            this.rotate(0);
+            //this.rotate(0);
             $(this.el).css('background-position', `${xpos}px ${ypos}px`);
         }
 
         hideCard(position) {
-            let y = opt.cardback == 'red' ? 0 * opt.cardSize.height : -1 * opt.cardSize.height;
+            let y = opt.cardback == 'red' ? 0 : -opt.cardSize.height;
             $(this.el).css('background-position', '0px ' + y + 'px');
-            this.rotate(0);
+            //this.rotate(0);
         }
 
         moveToFront() {
@@ -156,6 +168,7 @@ let cards = (function () {
             options = options || {};
             this.x = options.x || $(opt.table).width() / 2;
             this.y = options.y || $(opt.table).height() / 2;
+            this.angle = options.angle || 0;
             this.faceUp = options.faceUp;
         }
 
@@ -295,12 +308,22 @@ let cards = (function () {
 
         calcPosition(options) {
             options = options || {};
-            let width = opt.cardSize.width + (this.length - 1) * opt.cardSize.padding;
+            let factor = this.length - 1;
+            let width = Math.abs(
+                opt.cardSize.width * Math.cos(toRadians(this.angle)) + 
+                opt.cardSize.height * Math.sin(toRadians(this.angle))
+                + factor * opt.cardSize.padding * Math.cos(toRadians(this.angle)));
+            let height = Math.abs(
+                opt.cardSize.width * Math.sin(toRadians(this.angle)) + 
+                opt.cardSize.height * Math.cos(toRadians(this.angle))
+                + factor * opt.cardSize.padding * Math.sin(toRadians(this.angle)));
             let left = Math.round(this.x - width / 2);
-            let top = Math.round(this.y - opt.cardSize.height / 2, 0);
+            let top = Math.round(this.y - height / 2);
+            console.log(width);
             for (let i = 0; i < this.length; i++) {
-                this[i].targetTop = top;
-                this[i].targetLeft = left + i * opt.cardSize.padding;
+                this[i].rotate(360 - this.angle);
+                this[i].targetTop = top - i * opt.cardSize.padding * Math.sin(toRadians(this.angle));
+                this[i].targetLeft = left + i * opt.cardSize.padding * Math.cos(toRadians(this.angle));
             }
         }
 
