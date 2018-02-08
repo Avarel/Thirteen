@@ -48,6 +48,7 @@ deck.click(function (card) {
 lowerhand.click(function (card) {
     if (card.suit() == discardPile.topCard().suit()
         || card.rank() == discardPile.topCard().rank()) {
+        card.rotate(0);
         discardPile.addCard(card);
         discardPile.render();
         lowerhand.render();

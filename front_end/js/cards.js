@@ -309,17 +309,14 @@ let cards = (function () {
         calcPosition(options) {
             options = options || {};
             let factor = this.length - 1;
-            let width = Math.abs(
-                opt.cardSize.width * Math.cos(toRadians(this.angle)) + 
-                opt.cardSize.height * Math.sin(toRadians(this.angle))
-                + factor * opt.cardSize.padding * Math.cos(toRadians(this.angle)));
-            let height = Math.abs(
-                opt.cardSize.width * Math.sin(toRadians(this.angle)) + 
-                opt.cardSize.height * Math.cos(toRadians(this.angle))
-                + factor * opt.cardSize.padding * Math.sin(toRadians(this.angle)));
+            let angle = toRadians(this.angle);
+            let width = opt.cardSize.width +
+                Math.abs(factor * opt.cardSize.padding * Math.cos(angle));
+            let height = opt.cardSize.height + 
+                Math.abs(factor * opt.cardSize.padding * Math.sin(angle));
             let left = Math.round(this.x - width / 2);
             let top = Math.round(this.y - height / 2);
-            console.log(width);
+            console.log(this.y, height, top);
             for (let i = 0; i < this.length; i++) {
                 this[i].rotate(360 - this.angle);
                 this[i].targetTop = top - i * opt.cardSize.padding * Math.sin(toRadians(this.angle));
