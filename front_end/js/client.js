@@ -12,11 +12,11 @@ deck.addCards(cards.all);
 deck.render({ immediate: true });
 
 //Now lets create a couple of hands, one face down, one face up.
-let upperhand = new cards.Hand({ faceUp: false, y: 60 });
-let lowerhand = new cards.Hand({ faceUp: true, y: 360, angle: 90 });
+let upperhand = new cards.Hand({ faceUp: false, y: 100, angle: 180 });
+let lowerhand = new cards.Hand({ faceUp: true, y: 500 });
 
 //Lets add a discard pile
-let discardPile = new cards.Deck({ faceUp: true });
+let discardPile = new cards.Hand({ faceUp: true });
 discardPile.x += 50;
 
 
@@ -24,7 +24,7 @@ discardPile.x += 50;
 $('#deal').click(function () {
     //Deck has a built in method to deal to hands.
     $('#deal').hide();
-    deck.deal(5, [upperhand, lowerhand], 50, function () {
+    deck.deal(10, [upperhand, lowerhand], 50, function () {
         //This is a callback function, called when the dealing
         //is done.
         discardPile.addCard(deck.topCard());

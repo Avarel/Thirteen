@@ -1,9 +1,8 @@
 #![feature(iterator_step_by)]
-#![feature(exclusive_range_pattern)]
 #![feature(try_from)]
 
+extern crate ws;
 extern crate chrono;
-extern crate evzht9h3nznqzwl as websocket;
 extern crate rand;
 extern crate timer;
 

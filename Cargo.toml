@@ -7,5 +7,4 @@ authors = ["Avarel <avarelpm@gmail.com>"]
 rand = "0.4.2"
 timer = "0.2.0"
 chrono = "0.4.0"
-evzht9h3nznqzwl = "0.0.3"
-tokio-core = "0.1.12"
+ws = "0.7.3"

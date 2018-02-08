@@ -1,8 +1,6 @@
-function toRadians(angle) {
-    return angle * (Math.PI / 180);
-}
-
 let cards = (function () {
+    "use strict";
+
     let opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 500,
@@ -13,10 +11,8 @@ let cards = (function () {
         redJoker: false
     };
 
-    let diagonal = Math.round(Math.sqrt(Math.pow(opt.cardSize.width, 2) + Math.pow(opt.cardSize.height, 2)));
-    let diagonalAngle = Math.atan(opt.cardSize.height / opt.cardSize.width);
-
     let zIndexCounter = 1;
+
     let all = []; //All the cards created.
 
     function mouseEvent(ev) {
@@ -71,7 +67,7 @@ let cards = (function () {
             this.el = $('<div/>').css({
                 width: opt.cardSize.width,
                 height: opt.cardSize.height,
-                "background-image": 'url(' + opt.cardsUrl + ')',
+                "background-image": `url(${opt.cardsUrl})`,
                 position: 'absolute',
                 cursor: 'pointer'
             }).addClass('card').data('card', this).appendTo($(opt.table));
@@ -187,10 +183,11 @@ let cards = (function () {
             }
         }
 
+
         removeCard(card) {
             for (let i = 0; i < this.length; i++) {
                 if (this[i] == card) {
-                    this.splice(i, 1);
+                    this.splice(i, 1)
                     return true;
                 }
             }
@@ -254,7 +251,7 @@ let cards = (function () {
         }
 
         toString() {
-            return 'Container';
+            return 'Container' + super.toString();
         }
     }
 
@@ -263,8 +260,7 @@ let cards = (function () {
             super(options);
         }
 
-        calcPosition(options) {
-            options = options || {};
+        calcPosition({}) {
             let left = Math.round(this.x - opt.cardSize.width / 2, 0);
             let top = Math.round(this.y - opt.cardSize.height / 2, 0);
             let condenseCount = 6;
@@ -308,36 +304,27 @@ let cards = (function () {
         }
 
         calcPosition(options) {
-            options = options || {};
             let paddingCount = this.length - 1;
-            let angle = toRadians(this.angle);
-            let width = opt.cardSize.width +
-                Math.abs(paddingCount * opt.cardSize.padding * Math.cos(angle));
-            let height = opt.cardSize.height + 
-                Math.abs(paddingCount * opt.cardSize.padding * Math.sin(angle));
+            let angle = this.angle * (Math.PI / 180);
+            let width = opt.cardSize.width + paddingCount * opt.cardSize.padding * Math.cos(angle);
+            let height = opt.cardSize.height - paddingCount * opt.cardSize.padding * Math.sin(angle);
             let left = Math.round(this.x - width / 2);
-            let top = Math.round(this.y + height / 2);
-            console.log(this.y, height, top);
-
-            let xFactor = this.angle > 90 && this.angle < 270 ? paddingCount * opt.cardSize.padding * -Math.cos(toRadians(this.angle)) : 0;
-            let yFactor = this.angle > 180 ? paddingCount * opt.cardSize.padding * Math.sin(toRadians(this.angle)) : 0;
+            let top = Math.round(this.y - height / 2);
 
             for (let i = 0; i < this.length; i++) {
                 this[i].rotate(360 - this.angle);
-                this[i].targetTop = top + yFactor - i * opt.cardSize.padding * Math.sin(toRadians(this.angle));
-                this[i].targetLeft = left + xFactor + i * opt.cardSize.padding * Math.cos(toRadians(this.angle));
+                this[i].targetTop = top - i * opt.cardSize.padding * Math.sin(angle);
+                this[i].targetLeft = left + i * opt.cardSize.padding * Math.cos(angle);
             }
         }
 
         toString() {
-            return 'Hand';
+            return 'Hand' + super.toString();
         }
     }
 
     class Pile extends Container {
-        calcPosition(options) {
-            options = options || {};
-        }
+        calcPosition({}) {}
 
         toString() {
             return 'Pile';
