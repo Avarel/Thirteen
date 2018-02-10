@@ -71,7 +71,7 @@ function renderAll() {
     handQueue.render();
 }
 
-
+$(window).resize($.debounce(renderAll, 500));
 
 
 

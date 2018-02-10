@@ -3,7 +3,7 @@ let cards = (function () {
 
     let opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
-        animationSpeed: 500,
+        animationSpeed: 200,
         table: 'body',
         cardback: 'red',
         cardsUrl: 'img/cards.png',
