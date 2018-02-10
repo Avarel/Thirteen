@@ -61,8 +61,8 @@ let cards = (function () {
     class Card {
         constructor(id) {
             this.id = id;
-            this.shortName = this.suit() + this.rank();
-            this.name = this.suit().toUpperCase() + this.rank();
+            this.shortName = this.suit + this.rank;
+            this.name = this.suit.toUpperCase() + this.rank;
             this.faceUp = false;
             this.el = $('<div/>').css({
                 width: opt.cardSize.width,
@@ -98,7 +98,7 @@ let cards = (function () {
             }
         }
 
-        rank() {
+        get rank() {
             if (0 <= this.id && this.id < 13) {
                 return this.id;
             } else if (13 <= this.id && this.id < 26) {
@@ -111,7 +111,23 @@ let cards = (function () {
             throw "Illegal id";
         }
 
-        suit() {
+        get vcRank() {
+            switch (this.rank) {
+                case 0:
+                    return 11;
+                case 1:
+                    return 12;
+                default:
+                    return this.rank - 2;
+            }
+        }
+
+        static compare(a, b) {
+            let compare = a.vcRank - b.vcRank;
+            return compare === 0 ? a.suitValue - b.suitValue : compare;
+        }
+
+        get suit() {
             if (0 <= this.id && this.id < 13) {
                 return "s";
             } else if (13 <= this.id && this.id < 26) {
@@ -122,6 +138,19 @@ let cards = (function () {
                 return "h";
             }
             throw "Illegal id";
+        }
+
+        get suitValue() {
+            switch (this.suit) {
+                case "s":
+                    return 0;
+                case "c":
+                    return 1;
+                case "d":
+                    return 2;
+                case "h":
+                    return 3;
+            }
         }
 
         toString() {
@@ -140,9 +169,9 @@ let cards = (function () {
         showCard() {
             let offsets = { "c": 0, "d": 1, "h": 2, "s": 3 };
             let xpos, ypos;
-            let rank = this.rank();
+            let rank = this.rank;
             xpos = -(rank + 1) * opt.cardSize.width;
-            ypos = -offsets[this.suit()] * opt.cardSize.height;
+            ypos = -offsets[this.suit] * opt.cardSize.height;
             //this.rotate(0);
             $(this.el).css('background-position', `${xpos}px ${ypos}px`);
         }
@@ -158,19 +187,78 @@ let cards = (function () {
         }
     }
 
+    class Position {
+        constructor(options) {
+            options = options || {};
+            this.left = options.left;
+            this.right = options.right;
+            this.top = options.top;
+            this.bottom = options.bottom;
+        }
+
+        get x() {
+            if (this.left !== undefined) {
+                return this.left;
+            }
+            if (this.right !== undefined) {
+                return $(opt.table).width() - this.right;
+            }
+            return $(opt.table).width() / 2;
+        }
+
+        set x(xPos) {
+            this.left = xPos;
+        }
+
+        get y() {
+            if (this.top !== undefined) {
+                return this.top;
+            }
+            if (this.bottom !== undefined) {
+                return $(opt.table).height() - this.bottom;
+            }
+            return $(opt.table).height() / 2;
+        }
+
+        set y(yPos) {
+            this.top = yPos;
+        }
+    }
+
     class Container extends Array {
         constructor(options) {
             super();
             options = options || {};
-            this.x = options.x || $(opt.table).width() / 2;
-            this.y = options.y || $(opt.table).height() / 2;
+            this.position = options.position || new Position();
             this.angle = options.angle || 0;
             this.faceUp = options.faceUp;
+        }
+
+        get x() {
+            return this.position.x;
+        }
+
+        set x(xPos) {
+            this.position.x = xPos;
+        }
+
+        get y() {
+            return this.position.y;
+        }
+
+        set y(yPos) {
+            this.position.y = yPos;
+        }
+
+        sort() {
+            super.sort(Card.compare);
         }
 
         addCard(card) {
             this.addCards([card]);
         }
+
+        // lowerhand.addCards([12,3,4,5,6].map(cards.Card.fromID)); lowerhand.render()
 
         addCards(cards) {
             for (let i = 0; i < cards.length; i++) {
@@ -182,7 +270,6 @@ let cards = (function () {
                 card.container = this;
             }
         }
-
 
         removeCard(card) {
             for (let i = 0; i < this.length; i++) {
@@ -207,8 +294,9 @@ let cards = (function () {
         }
 
         render(options) {
+            this.sort();
             options = options || {};
-            let speed = options.speed || opt.animationSpeed;
+            let speed = (options.speed || opt.animationSpeed);
             this.calcPosition(options);
             for (let i = 0; i < this.length; i++) {
                 let card = this[i];
@@ -217,7 +305,11 @@ let cards = (function () {
                 let top = parseInt($(card.el).css('top'));
                 let left = parseInt($(card.el).css('left'));
                 if (top != card.targetTop || left != card.targetLeft) {
-                    let props = { top: card.targetTop, left: card.targetLeft, queue: false };
+                    let props = {
+                        top: card.targetTop,
+                        left: card.targetLeft,
+                        queue: false
+                    };
                     if (options.immediate) {
                         $(card.el).css(props);
                     } else {
@@ -260,7 +352,7 @@ let cards = (function () {
             super(options);
         }
 
-        calcPosition({}) {
+        calcPosition({ }) {
             let left = Math.round(this.x - opt.cardSize.width / 2, 0);
             let top = Math.round(this.y - opt.cardSize.height / 2, 0);
             let condenseCount = 6;
@@ -269,7 +361,7 @@ let cards = (function () {
                     top -= 1;
                     left -= 1;
                 }
-                this[i].rotate(360 - this.angle);
+                this[i].rotate(this.angle);
                 this[i].targetTop = top;
                 this[i].targetLeft = left;
             }
@@ -312,7 +404,7 @@ let cards = (function () {
             let top = Math.round(this.y - height / 2);
 
             for (let i = 0; i < this.length; i++) {
-                this[i].rotate(360 - this.angle);
+                this[i].rotate(this.angle);
                 this[i].targetTop = top - i * opt.cardSize.padding * Math.sin(angle);
                 this[i].targetLeft = left + i * opt.cardSize.padding * Math.cos(angle);
             }
@@ -324,7 +416,15 @@ let cards = (function () {
     }
 
     class Pile extends Container {
-        calcPosition({}) {}
+        calcPosition(options) {
+            let left = Math.round(this.x - opt.cardSize.width / 2);
+            let top = Math.round(this.y - opt.cardSize.height / 2);
+
+            for (let i = 0; i < this.length; i++) {
+                this[i].targetTop = top;
+                this[i].targetLeft = left;
+            }
+        }
 
         toString() {
             return 'Pile';
@@ -342,6 +442,7 @@ let cards = (function () {
         all: all,
         options: opt,
         SIZE: opt.cardSize,
+        Position: Position,
         Card: Card,
         Container: Container,
         Deck: Deck,

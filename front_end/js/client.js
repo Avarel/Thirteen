@@ -11,20 +11,28 @@ deck.addCards(cards.all);
 //No animation here, just get the deck onto the table.
 deck.render({ immediate: true });
 
-//Now lets create a couple of hands, one face down, one face up.
-let upperhand = new cards.Hand({ faceUp: false, y: 100, angle: 180 });
-let lowerhand = new cards.Hand({ faceUp: true, y: 500 });
+let displayOpts = [
+    { faceUp: true, position: new cards.Position({bottom: 50}), angle: 0 }, 
+    { faceUp: false, position: new cards.Position({top: 50}), angle: 180 },
+    { faceUp: false, position: new cards.Position({left: 50}), angle: 90 },
+    { faceUp: false, position: new cards.Position({right: 50}), angle: 270 }
+];
+
+let playerCount = 4;
+
+let hands = displayOpts.slice(0, playerCount).map(opt => new cards.Hand(opt));
+
+let handQueue = new cards.Hand({ faceUp: true, position: new cards.Position({bottom: 150}), angle: 0 });
 
 //Lets add a discard pile
-let discardPile = new cards.Hand({ faceUp: true });
+let discardPile = new cards.Pile({ faceUp: true });
 discardPile.x += 50;
-
 
 //Let's deal when the Deal button is pressed:
 $('#deal').click(function () {
     //Deck has a built in method to deal to hands.
     $('#deal').hide();
-    deck.deal(10, [upperhand, lowerhand], 50, function () {
+    deck.deal(10, hands, 50, function () {
         //This is a callback function, called when the dealing
         //is done.
         discardPile.addCard(deck.topCard());
@@ -35,34 +43,33 @@ $('#deal').click(function () {
 
 //When you click on the top card of a deck, a card is added
 //to your hand
-deck.click(function (card) {
+deck.click(card => {
     if (card === deck.topCard()) {
-        lowerhand.addCard(deck.topCard());
-        lowerhand.render();
+        hands[0].addCard(deck.topCard());
+        hands[0].render();
     }
 });
 
 //Finally, when you click a card in your hand, if it's
 //the same suit or rank as the top card of the discard pile
 //then it's added to it
-lowerhand.click(function (card) {
-    if (card.suit() == discardPile.topCard().suit()
-        || card.rank() == discardPile.topCard().rank()) {
-        card.rotate(0);
-        discardPile.addCard(card);
-        discardPile.render();
-        lowerhand.render();
-    }
+hands[0].click(card => {
+    handQueue.addCard(card);
+    renderAll();
+});
+
+handQueue.click(card => {
+    hands[0].addCard(card);
+    renderAll();
 });
 
 
 
-
-
-
-
-
-
+function renderAll() {
+    deck.render();
+    hands.forEach(x => x.render());
+    handQueue.render();
+}
 
 
 
