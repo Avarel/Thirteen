@@ -6,6 +6,7 @@ html
 
     title WebSocket Test
     link(href='css/style.css', rel='stylesheet')
+    link(href='https://fonts.googleapis.com/css?family=Lato', rel='stylesheet')
   body
     //
       <button id="connect">Connect</button>
@@ -19,10 +20,13 @@ html
       <br>
     .hero
       header
-        h1 VC
-        button#deal Deal
-      section.container
-        #game
+        .container
+          h1 Thirteen
+          section.buttons
+            span.button#deal Start Game
+            span.button About
+      section.content
+        game.container
           .button#play Play Cards
   script(src="http://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous")
   script(src="js/cards.js")

@@ -14,6 +14,7 @@ impl Pattern {
     /// ie: [3, 3, 4, 4, 5, 5] of a certain length >= 3 (6 cards)
     pub fn check_sequence_pair(source: &[Card]) -> bool {
         source.len() >= 6
+            && source.last().unwrap().vc_value() != 12
             && source
                 .chunks(2)
                 .all(|pair| pair[0].vc_value() == pair[1].vc_value())
@@ -25,6 +26,7 @@ impl Pattern {
     /// Can also represent single patterns
     pub fn check_sequence(source: &[Card]) -> bool {
         source.len() >= 3
+            && source.last().unwrap().vc_value() != 12
             && source
                 .iter()
                 .enumerate()

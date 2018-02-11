@@ -1,5 +1,5 @@
 //Tell the library which element to use for the table
-cards.init({ table: '#game' });
+cards.init({ table: 'game.container' });
 
 //Create a new deck of cards
 let deck = new cards.Deck();
