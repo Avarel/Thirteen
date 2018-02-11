@@ -3,7 +3,7 @@ let cards = (function () {
 
     let opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
-        animationSpeed: 200,
+        animationSpeed: 150,
         table: 'body',
         cardback: 'red',
         cardsUrl: 'img/cards.png',
@@ -190,6 +190,13 @@ let cards = (function () {
     class Position {
         constructor(options) {
             options = options || {};
+
+            if (options.left !== undefined && options.right !== undefined) {
+                throw "Can not have left and right prop at the same time."
+            } else if (options.top !== undefined && options.right !== undefined) {
+                throw "Can not have top and bottom prop at the same time."
+            }
+
             this.left = options.left;
             this.right = options.right;
             this.top = options.top;
@@ -232,22 +239,6 @@ let cards = (function () {
             this.position = options.position || new Position();
             this.angle = options.angle || 0;
             this.faceUp = options.faceUp;
-        }
-
-        get x() {
-            return this.position.x;
-        }
-
-        set x(xPos) {
-            this.position.x = xPos;
-        }
-
-        get y() {
-            return this.position.y;
-        }
-
-        set y(yPos) {
-            this.position.y = yPos;
         }
 
         sort() {
@@ -353,8 +344,8 @@ let cards = (function () {
         }
 
         calcPosition({ }) {
-            let left = Math.round(this.x - opt.cardSize.width / 2, 0);
-            let top = Math.round(this.y - opt.cardSize.height / 2, 0);
+            let left = Math.round(this.position.x - opt.cardSize.width / 2, 0);
+            let top = Math.round(this.position.y - opt.cardSize.height / 2, 0);
             let condenseCount = 6;
             for (let i = 0; i < this.length; i++) {
                 if (i > 0 && i % condenseCount == 0) {
@@ -400,8 +391,8 @@ let cards = (function () {
             let angle = this.angle * (Math.PI / 180);
             let width = opt.cardSize.width + paddingCount * opt.cardSize.padding * Math.cos(angle);
             let height = opt.cardSize.height - paddingCount * opt.cardSize.padding * Math.sin(angle);
-            let left = Math.round(this.x - width / 2);
-            let top = Math.round(this.y - height / 2);
+            let left = Math.round(this.position.x - width / 2);
+            let top = Math.round(this.position.y - height / 2);
 
             for (let i = 0; i < this.length; i++) {
                 this[i].rotate(this.angle);

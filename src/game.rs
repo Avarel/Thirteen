@@ -67,29 +67,30 @@ impl fmt::Display for Pattern {
 }
 
 pub struct Game {
-    pub history: Vec<Play>,
+    pub players: Vec<Player>,
+    pub history: Vec<Turn>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Play {
+pub struct Turn {
     pattern: Pattern,
     stack: Vec<Card>,
 }
 
-impl<'a> From<&'a [Card]> for Play {
+impl<'a> From<&'a [Card]> for Turn {
     #[inline]
-    fn from(source: &'a [Card]) -> Play {
+    fn from(source: &'a [Card]) -> Turn {
         let mut stack = source.to_vec();
         stack.sort();
 
-        Play {
+        Turn {
             pattern: Pattern::of(&stack),
             stack,
         }
     }
 }
 
-impl Play {
+impl Turn {
     #[inline]
     pub fn top_card(&self) -> &Card {
         self.stack.last().unwrap()
@@ -107,4 +108,8 @@ impl Play {
             p => p == target.pattern && self.top_card() > target.top_card(),
         }
     }
+}
+
+pub struct Player {
+    pub hand: Vec<Card>,
 }
