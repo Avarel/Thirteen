@@ -83,18 +83,18 @@ let cards = (function () {
         }
 
         static from(suit, rank) {
-            if (0 > this.id || this.id >= 13) {
+            if (0 > rank || rank >= 13) {
                 throw "Illegal rank";
             }
             switch (suit) {
                 case "s":
-                    return new Card(rank, table);
+                    return new Card(rank);
                 case "c":
-                    return new Card(rank - 13, table);
+                    return new Card(rank - 13);
                 case "d":
-                    return new Card(rank - 26, table);
+                    return new Card(rank - 26);
                 case "h":
-                    return new Card(rank - 39, table);
+                    return new Card(rank - 39);
             }
         }
 
@@ -344,8 +344,8 @@ let cards = (function () {
         }
 
         calcPosition({ }) {
-            let left = Math.round(this.position.x - opt.cardSize.width / 2, 0);
-            let top = Math.round(this.position.y - opt.cardSize.height / 2, 0);
+            let left = Math.round(this.position.x - opt.cardSize.width / 2);
+            let top = Math.round(this.position.y - opt.cardSize.height / 2);
             let condenseCount = 6;
             for (let i = 0; i < this.length; i++) {
                 if (i > 0 && i % condenseCount == 0) {

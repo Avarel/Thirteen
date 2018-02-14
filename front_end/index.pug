@@ -8,27 +8,30 @@ html
     link(href='css/style.css', rel='stylesheet')
     link(href='https://fonts.googleapis.com/css?family=Lato', rel='stylesheet')
   body
-    //
-      <button id="connect">Connect</button>
-      <button id="disconnect">Disconnect</button>
-      <button id="empty">Empty</button>
-      <p id="received">
-      <strong>Received Messages:</strong>
-      </p>
-      <input id="message-box" type="text" name="message">
-      <button id="submit">Submit</button>
-      <br>
     .hero
       header
         .container
           h1 Thirteen
           section.buttons
             span.button#deal Start Game
-            span.button About
+            span.button.disabled About
       section.content
-        game.container
-          .button#play Play Cards
-  script(src="http://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous")
-  script(src="js/cards.js")
-  script(src="js/debounce.js")
-  script(src="js/client.js")
+        .container.shadow
+          game
+            button#connect Connect
+            button#disconnect Disconnect
+            button#empty Empty
+            p#received
+              strong Received Messages:
+            input#message-box(type="text" name="message")
+            button#submit Submit
+            br
+          .status
+            .button#pass Pass
+            .text Press Start Game to connect to the server!
+            .button#play Play
+  script(src="http://code.jquery.com/jquery-3.3.1.min.js")
+  script(src="https://is.gd/sAeEPt")
+  script(src="js/target/cards.js")
+  script(src="js/target/utils.js")
+  script(src="js/target/client.js")

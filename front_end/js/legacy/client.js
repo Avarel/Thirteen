@@ -1,5 +1,5 @@
 //Tell the library which element to use for the table
-cards.init({ table: 'game.container' });
+cards.init({ table: 'game' });
 
 //Create a new deck of cards
 let deck = new cards.Deck();
@@ -10,13 +10,13 @@ deck.addCards(cards.all);
 deck.render({ immediate: true });
 
 let displayOpts = [
-    { faceUp: true,  position: new cards.Position({bottom: 25}), angle: 0 }, 
-    { faceUp: false, position: new cards.Position({top: 0}), angle: 180 },
-    { faceUp: false, position: new cards.Position({left: 0}), angle: 90 },
-    { faceUp: false, position: new cards.Position({right: 0}), angle: 270 }
+    { faceUp: true, position: new cards.Position({ bottom: 25 }), angle: 0 },
+    { faceUp: false, position: new cards.Position({ top: 0 }), angle: 180 },
+    { faceUp: false, position: new cards.Position({ left: 0 }), angle: 90 },
+    { faceUp: false, position: new cards.Position({ right: 0 }), angle: 270 }
 ];
 
-let handQueue = new cards.Hand({ faceUp: true, position: new cards.Position({bottom: 125}), angle: 0 });
+let handQueue = new cards.Hand({ faceUp: true, position: new cards.Position({ bottom: 125 }), angle: 0 });
 
 let playerCount = 4;
 
@@ -25,7 +25,12 @@ let hands = displayOpts.slice(0, playerCount).map(opt => new cards.Hand(opt));
 //Let's deal when the Deal button is pressed:
 $('#deal').click(function () {
     //Deck has a built in method to deal to hands.
-    $('#deal').hide();
+    if ($('#deal').hasClass("disabled")) {
+        return;
+    }
+    $('#deal').addClass("disabled");
+    $('#play').show();
+    $('#pass').show();
     deck.deal(12, hands, 50);
 });
 
@@ -54,19 +59,12 @@ $(window).resize($.debounce(() => renderAll({ immediate: true }), 500));
 
 
 
+
+
+
+
+
 let socket = undefined;
-
-function connect() {
-    if (socket) {
-        write_to_log("Already connected to server!");
-        return;
-    }
-
-    write_to_log("Connecting to server...");
-    socket = new WebSocket("ws://127.0.0.1:2794", "thirteen-game");
-    socket.onmessage = event => write_to_log(event.data);
-    socket.onclose = disconnect;
-}
 
 function disconnect() {
     if (!socket) {
@@ -75,11 +73,27 @@ function disconnect() {
     }
 
     write_to_log("Disconnecting from server.");
+    status("Press Start Game to connect to the server!");
     socket.onclose = undefined;
     socket.close();
     socket = undefined;
 }
 
+function status(msg) {
+    $(".status .text").text(msg);
+}
+
+function process(event) {
+    write_to_log(event.data);
+
+    let payload = JSON.parse(event.data);
+
+    switch (Object.keys(payload)[0]) {
+        case "QueueUpdate":
+            status(`${payload.QueueUpdate.size}/4 connected players!`);
+            break;
+    }
+}
 function write_to_log(msg) {
     let received = $("#received");
     let br = document.createElement("br");
@@ -102,4 +116,20 @@ $("#submit").click(() => {
     }
     let input = $("#message-box").val()
     socket.send(input);
-})
+});
+
+$("#play").click(() => {
+
+});
+
+function connect() {
+    if (socket) {
+        write_to_log("Already connected to server!");
+        return;
+    }
+
+    write_to_log("Connecting to server...");
+    socket = new WebSocket("ws://127.0.0.1:2794", "thirteen-game");
+    socket.onmessage = event => process(event);
+    socket.onclose = disconnect;
+};

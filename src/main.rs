@@ -1,6 +1,11 @@
 #![feature(iterator_step_by)]
 #![feature(try_from)]
 
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
+
 extern crate ws;
 extern crate chrono;
 extern crate rand;
@@ -19,14 +24,20 @@ fn main() {
 
     // println!("Started the Thirteen server!");
     // thread.join().unwrap();
+
+    // let mut game = game::Game::new();
+    // game.add_player();
+    // game.add_player();
+    // game.start();
+    // println!("{:?}", game.player(1));
 }
 
 #[test]
 fn triple_sequence_pair_vs_single_two() {
     use cards::{Card, Suit};
-    use game::Play;
+    use game::Turn;
     assert!(
-        Play::from(&[
+        Turn::from(&[
             Card::new_unchecked(2, Suit::Diamonds),
             Card::new_unchecked(2, Suit::Diamonds),
             Card::new_unchecked(3, Suit::Diamonds),
@@ -34,7 +45,7 @@ fn triple_sequence_pair_vs_single_two() {
             Card::new_unchecked(4, Suit::Diamonds),
             Card::new_unchecked(4, Suit::Diamonds),
         ] as &[Card])
-            .gt(&Play::from(&[Card::new_unchecked(1, Suit::Hearts),] as &[Card])),
+            .gt(&Turn::from(&[Card::new_unchecked(1, Suit::Hearts),] as &[Card])),
         "Sequence pair of 3 is supposed to beat a single 2"
     );
 }
@@ -42,9 +53,9 @@ fn triple_sequence_pair_vs_single_two() {
 #[test]
 fn quad_sequence_pair_vs_pair_two() {
     use cards::{Card, Suit};
-    use game::Play;
+    use game::Turn;
     assert!(
-        Play::from(&[
+        Turn::from(&[
             Card::new_unchecked(2, Suit::Diamonds),
             Card::new_unchecked(2, Suit::Diamonds),
             Card::new_unchecked(3, Suit::Diamonds),
@@ -54,7 +65,7 @@ fn quad_sequence_pair_vs_pair_two() {
             Card::new_unchecked(5, Suit::Diamonds),
             Card::new_unchecked(5, Suit::Diamonds),
         ] as &[Card])
-            .gt(&Play::from(&[
+            .gt(&Turn::from(&[
             Card::new_unchecked(1, Suit::Diamonds),
             Card::new_unchecked(1, Suit::Hearts)
         ] as &[Card])),

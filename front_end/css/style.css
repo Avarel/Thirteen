@@ -1,10 +1,14 @@
 * {
   font-family: Lato, sans-serif; }
 
+.shadow {
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19); }
+
 .button {
   padding: 10px;
   background: white;
   border-radius: 5px;
+  font-size: 15px;
   cursor: pointer;
   user-select: none;
   transition: all ease-in-out 0.2s; }
@@ -13,6 +17,14 @@
   .button:active {
     transform: none;
     background: #cacaca; }
+  .button.disabled {
+    transform: scale(0.9, 0.9);
+    background: #636363; }
+
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto; }
 
 body {
   height: 100vh;
@@ -23,16 +35,13 @@ body {
   height: 100%;
   width: 100%;
   display: flex;
-  flex-direction: column; }
+  flex-direction: column;
+  background: url(../img/bg-tile.png), linear-gradient(to bottom, #3d4046, #1c1e22); }
   .hero header {
-    height: 100px;
+    height: 80px;
     width: 100vw;
-    background-color: #1e2124; }
+    background: rgba(0, 0, 0, 0.5); }
     .hero header .container {
-      width: 100%;
-      height: 100%;
-      max-width: 800px;
-      margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: center; }
@@ -41,8 +50,8 @@ body {
         text-align: center;
         margin: 20px; }
       .hero header .container section.buttons {
-        display: flex;
         flex: 1;
+        display: flex;
         justify-content: flex-end; }
         .hero header .container section.buttons .button {
           margin-right: 20px; }
@@ -50,23 +59,43 @@ body {
     flex: 1;
     display: flex;
     justify-items: center;
-    align-items: center;
-    background: url(../img/bg-tile.png), linear-gradient(to bottom, #3d4046, #1c1e22); }
-    .hero section.content game.container {
-      border-radius: 5px;
-      width: 100%;
-      height: 100%;
-      max-height: 600px;
-      max-width: 800px;
-      margin: auto auto;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.37);
-      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    align-items: center; }
+    .hero section.content .container {
       display: flex;
+      flex-direction: column;
       justify-content: center; }
-      .hero section.content game.container .button {
-        bottom: 200px;
-        position: absolute;
-        margin: 0 auto; }
+    .hero section.content game {
+      width: 100%;
+      height: 600px;
+      max-height: 600px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.2); }
+    .hero section.content .status {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 38px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white; }
+      .hero section.content .status .text {
+        flex: 1;
+        margin-left: 10px;
+        text-align: center; }
+      .hero section.content .status .button {
+        border-radius: 0;
+        background: #1e1e1e;
+        display: none; }
+        .hero section.content .status .button:active {
+          transform: none; }
+      .hero section.content .status .button#play {
+        background: darkgreen; }
+        .hero section.content .status .button#play:hover {
+          transform: none;
+          background: #009600; }
+      .hero section.content .status .button#pass {
+        background: #640000; }
+        .hero section.content .status .button#pass:hover {
+          transform: none;
+          background: #960000; }
 
 /*# sourceMappingURL=style.css.map */
