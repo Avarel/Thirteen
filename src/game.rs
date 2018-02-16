@@ -79,7 +79,7 @@ pub struct Game {
     pass_count: usize,   // how many people passed
     current_turn: usize, // whose turn is it currently
 
-    player_cards: Vec<Vec<Card>>, // cards of the players of the game
+    players: Vec<Player>, // cards of the players of the game
 
     pub history: Vec<Turn>, // past turns
 }
@@ -91,35 +91,30 @@ impl Game {
             new_round: true,
             pass_count: 0,
             current_turn: 0,
-            player_cards: Vec::new(),
+            players: Vec::new(),
             history: Vec::new(),
         }
     }
 
-    #[inline]
-    fn player_count(&self) -> usize {
-        self.player_cards.len()
-    }
-
     // get an abstraction
     #[inline]
-    pub fn player(&mut self, local_id: usize) -> Player {
-        if local_id >= self.player_count() {
+    pub fn player_controller(&mut self, local_id: usize) -> PlayerController {
+        if local_id >= self.players.len() {
             unimplemented!()
         }
 
-        Player { game: self, local_id }
+        PlayerController { game: self, local_id }
     }
 
     // add a new player and return their local id
     pub fn add_player(&mut self) -> usize {
-        if self.started || self.player_count() >= 4 {
+        if self.started || self.players.len() >= 4 {
             unimplemented!()
         }
 
-        self.player_cards.push(Vec::new());
+        self.players.push(Player { cards: Vec::new() });
 
-        self.player_count() - 1
+        self.players.len() - 1
     }
 
     pub fn start(&mut self) {
@@ -130,17 +125,16 @@ impl Game {
         use cards::partitioned_deck;
         let decks = partitioned_deck();
 
-        self.player_cards
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, p)| decks[i].iter().for_each(|&c| p.push(c)));
+        for i in 0..self.players.len() {
+            self.player_controller(i).add_cards(&decks[i]);
+        }
 
         self.started = true;
     }
 
     fn next_turn(&mut self) {
         self.current_turn += 1;
-        self.current_turn %= self.player_count();
+        self.current_turn %= self.players.len();
     }
 }
 
@@ -183,21 +177,25 @@ impl Turn {
     }
 }
 
-pub struct Player<'game> {
+pub struct Player {
+    cards: Vec<Card>
+}
+
+pub struct PlayerController<'game> {
     game: &'game mut Game,
     local_id: usize,
 }
 
 // abstraction to make player handling easier
-impl<'game> Player<'game> {
+impl<'game> PlayerController<'game> {
     #[inline]
     pub fn cards(&self) -> &[Card] {
-        &self.game.player_cards[self.local_id]
+        &self.game.players[self.local_id].cards
     }
 
     #[inline]
     pub fn cards_mut(&mut self) -> &mut Vec<Card> {
-        &mut self.game.player_cards[self.local_id]
+        &mut self.game.players[self.local_id].cards
     }
 
     pub fn add_cards(&mut self, cards: &[Card]) {
@@ -262,7 +260,7 @@ impl<'game> Player<'game> {
         self.game.next_turn();
         self.game.pass_count += 1;
 
-        if self.game.pass_count >= self.game.player_count() - 1 {
+        if self.game.pass_count >= self.game.players.len() - 1 {
             self.game.pass_count = 0;
             self.game.new_round = true;
         }
@@ -271,7 +269,7 @@ impl<'game> Player<'game> {
     }
 }
 
-impl<'game> fmt::Debug for Player<'game> {
+impl<'game> fmt::Debug for PlayerController<'game> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Player( cards: {:?} )", self.cards())
     }

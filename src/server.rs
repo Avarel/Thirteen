@@ -2,66 +2,26 @@ use ws;
 use serde_json;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
+pub const GAME_SIZE: usize = 2;
 
-// struct Server {
-// 	out: Sender,
-// }
-
-// impl Handler for Server {
-// 	fn on_message(&mut self, msg: Message) -> Result<()> {
-// 		println!("{:?}", msg);
-// 		match msg {
-// 			Message::Text(buf) => {
-// 				let buf = format!("wow, \"{},\" I think so too!", buf);
-// 				self.out.send(Message::Text(buf))
-// 			}
-// 			_ => self.out.send(msg)
-// 		}
-// 	}
-
-// 	fn on_close(&mut self, code: CloseCode, reason: &str) {
-// 		match code {
-// 			CloseCode::Normal => println!("The client is done with the connection."),
-// 			CloseCode::Away => println!("The client is leaving the site."),
-// 			_ => println!("The client encountered an error: {}", reason),
-// 		}
-// 	}
-
-//     fn on_request(&mut self, req: &Request) -> Result<Response> {
-//         let mut response = Response::from_request(req)?;
-// 		response.set_protocol(PROTOCOL);
-// 		Ok(response)
-//     }
-// }
-
-// use std::sync::mpsc::{channel, Sender as SenderChannel, Receiver};
-
-use std::sync;
+use game;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Weak, RwLock};
+use std::collections::{HashMap, VecDeque};
 
 pub fn start_server() {
 	println!("Starting server...");
 
-	let j = serde_json::to_string(&DataIn::Pass {}).unwrap();
-
-	println!("{}", j);
-
-	let event: DataIn = serde_json::from_str(&j).unwrap();
-
-	println!("{:?}", event);
-
-	let mut game = sync::Arc::new(Server {
-		ready: false,
-		local_ids: Vec::with_capacity(4).into(),
-		senders: Vec::with_capacity(4).into(),
-	});
+	let server = Arc::new(Server::new());
+	// server.add_instance(Instance::new(Arc::downgrade(&server), GAME_SIZE));
 
 	let mut counter = 0;
 
 	ws::listen("127.0.0.1:2794", |out| {
 		let client = ClientConnection {
 			client_id: counter,
-			game: sync::Arc::downgrade(&game),
-			out: sync::Arc::new(out),
+			game: Server::mm_instance(&server, GAME_SIZE),
+			out: out.into(),
 		};
 		counter += 1;
 		client
@@ -69,13 +29,105 @@ pub fn start_server() {
 }
 
 pub struct Server {
-	// input_channel: sync::Arc<Receiver<PayloadIn>>,
-	ready: bool,
-	local_ids: sync::RwLock<Vec<usize>>,
-	senders: sync::RwLock<Vec<sync::Weak<ws::Sender>>>,
+	counter: AtomicUsize,
+
+	// matchmaking instances
+	mm_instances: RwLock<VecDeque<Arc<Instance>>>,
+
+	// running instances
+	rn_instances: RwLock<HashMap<usize, Arc<Instance>>>,
 }
 
 impl Server {
+	pub fn new() -> Self {
+		Server {
+			counter: AtomicUsize::new(0),
+			mm_instances: VecDeque::new().into(),
+			rn_instances: HashMap::new().into(),
+		}
+	}
+
+	/// Add an instance.
+	pub fn add_instance(&self, instance: Arc<Instance>) {
+		self.mm_instances.write().unwrap().push_back(instance);
+	}
+
+	/// Get the longest-waiting instance (in this case, the front of the queue) with the desired game size.
+	/// If theres no queued instances with desired game size, create a new one.
+	pub fn mm_instance(this: &Arc<Server>, game_size: usize) -> Weak<Instance> {
+		if let Some(instance) = this.mm_instances
+			.read()
+			.unwrap()
+			.iter()
+			.find(|i| i.game_size == game_size)
+		{
+			return Arc::downgrade(instance);
+		}
+
+		let instance = Instance::new_arc(Arc::downgrade(this), GAME_SIZE);
+		let weak = Arc::downgrade(&instance);
+		this.add_instance(instance);
+		weak
+	}
+
+	/// Upgrade a matchmaking instance into a running instance.
+	pub fn upgrade_instance(&self, id: usize) {
+		let instance = self.remove_mm_instance(id);
+		self.rn_instances.write().unwrap().insert(id, instance);
+	}
+
+	/// Remove a running instance.
+	pub fn remove_rn_instance(&self, id: usize) -> Arc<Instance> {
+		self.rn_instances.write().unwrap().remove(&id).unwrap() // i want an error if evoked wrongly
+	}
+
+	/// Remove a matchmaking instance.
+	pub fn remove_mm_instance(&self, id: usize) -> Arc<Instance> {
+		let mut mm_instances = self.mm_instances.write().unwrap();
+		let index = mm_instances
+			.iter()
+			.map(|i| i.id)
+			.position(|i| i == id)
+			.unwrap();
+		mm_instances.remove(index).unwrap()
+	}
+}
+
+pub struct Instance {
+	running: bool,
+	id: usize,
+	game_size: usize,
+	server: Weak<Server>,
+	local_ids: RwLock<Vec<usize>>,
+	senders: RwLock<Vec<Weak<ws::Sender>>>,
+	model: RwLock<game::Game>,
+}
+
+impl Drop for Instance {
+	fn drop(&mut self) {
+		println!("Instance #{} is getting dropped", self.id)
+	}
+}
+
+impl Instance {
+	pub fn new_arc(server: Weak<Server>, game_size: usize) -> Arc<Self> {
+		let strong = server.upgrade().unwrap();
+		let id = strong.counter.load(Ordering::Relaxed);
+		let arc = Instance {
+			id,
+			running: false,
+			game_size,
+			server: server,
+			local_ids: Vec::with_capacity(game_size).into(),
+			senders: Vec::with_capacity(game_size).into(),
+			model: game::Game::new().into(),
+		}.into();
+		strong
+			.counter
+			.store(id + 1, Ordering::Relaxed);
+		arc
+	}
+
 	pub fn process(&self, payload: PayloadIn) {
 		unimplemented!()
 	}
@@ -96,37 +148,61 @@ impl Server {
 	pub fn broadcast_queue_update(&self) {
 		let data = DataOut::QueueUpdate {
 			size: self.senders.read().unwrap().len(),
+			goal: self.game_size,
 		};
 		self.broadcast(data);
 	}
 
-	pub fn send_out(&self, payload: PayloadOut) {
-		unimplemented!()
+	#[inline]
+	pub fn connected_count(&self) -> usize {
+		self.senders.read().unwrap().len()
 	}
 
-	pub fn add_client(&self, id: usize, sender: sync::Weak<ws::Sender>) {
+	pub fn send_out(&self, payload: PayloadOut) {
+		let sender = &self.senders.read().unwrap()[payload.local_id]
+			.upgrade()
+			.unwrap();
+		sender
+			.send(serde_json::to_string(&payload.data).unwrap())
+			.unwrap();
+	}
+
+	pub fn add_client(&self, id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
+		if self.connected_count() >= self.game_size {
+			return Err(ws::Error::new(
+				ws::ErrorKind::Capacity,
+				"Attempted to connect to full game",
+			));
+		}
+
 		self.senders.write().unwrap().push(sender);
 		self.local_ids.write().unwrap().push(id);
 		self.broadcast_queue_update();
+
+		Ok(())
 	}
 
-	pub fn remove_client(&self, id: usize, closed_by_server: bool) {
-		let local_id = self.local_id(id);
-		let sender = self.senders.write().unwrap().remove(local_id);
-		if closed_by_server {
-			sender.upgrade().map(|s| s.close(ws::CloseCode::Normal));
+	pub fn remove_client(&self, id: usize, close: bool) {
+		if let Some(local_id) = self.local_id(id) {
+			let sender = self.senders.write().unwrap().remove(local_id);
+			if close {
+				sender.upgrade().map(|s| s.close(ws::CloseCode::Normal));
+			}
+			self.local_ids.write().unwrap().remove(local_id);
+			self.broadcast_queue_update();
 		}
-		self.local_ids.write().unwrap().remove(local_id);
-		self.broadcast_queue_update();
+
+		if self.connected_count() == 0 {
+			if self.running {
+				self.server.upgrade().unwrap().remove_rn_instance(self.id);
+			} else {
+				self.server.upgrade().unwrap().remove_mm_instance(self.id);
+			}
+		}
 	}
 
-	pub fn local_id(&self, id: usize) -> usize {
-		self.local_ids
-			.read()
-			.unwrap()
-			.iter()
-			.position(|&x| x == id)
-			.unwrap()
+	pub fn local_id(&self, id: usize) -> Option<usize> {
+		self.local_ids.read().unwrap().iter().position(|&x| x == id)
 	}
 }
 
@@ -138,7 +214,10 @@ pub struct PayloadOut {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataOut {
-	QueueUpdate { size: usize },
+	QueueUpdate { size: usize, goal: usize },
+	InitializeGame { cards: Vec<Vec<u8>> },
+	Play { local_id: usize, cards: Vec<u8> },
+	Error { reason: String },
 }
 
 #[derive(Debug)]
@@ -150,14 +229,15 @@ pub struct PayloadIn {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataIn {
 	Pass {},
+	Play { cards: Vec<u8> },
 }
 
 struct ClientConnection {
 	client_id: usize,
-	game: sync::Weak<Server>,
+	game: Weak<Instance>,
 
 	// output to client
-	out: sync::Arc<ws::Sender>,
+	out: Arc<ws::Sender>,
 }
 
 impl ws::Handler for ClientConnection {
@@ -165,7 +245,7 @@ impl ws::Handler for ClientConnection {
 		println!("Incoming: {:?}", msg);
 
 		// not ready
-		if !self.game.upgrade().unwrap().ready {
+		if !self.game.upgrade().unwrap().running {
 			return Ok(());
 		}
 
@@ -178,12 +258,12 @@ impl ws::Handler for ClientConnection {
 					});
 					Ok(())
 				}
-				Err(_) => Result::Err(ws::Error::new(
+				Err(_) => Err(ws::Error::new(
 					ws::ErrorKind::Protocol,
 					"Unparsable data sent",
 				)),
 			},
-			_ => Result::Err(ws::Error::new(
+			ws::Message::Binary(_) => Err(ws::Error::new(
 				ws::ErrorKind::Protocol,
 				"Binary not accepted",
 			)),
@@ -207,7 +287,8 @@ impl ws::Handler for ClientConnection {
 		self.game
 			.upgrade()
 			.unwrap()
-			.add_client(self.client_id, sync::Arc::downgrade(&self.out));
+			.add_client(self.client_id, Arc::downgrade(&self.out))?;
+
 		Ok(())
 	}
 

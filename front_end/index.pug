@@ -16,20 +16,20 @@ html
             span.button#deal Start Game
             span.button.disabled About
       section.content
-        .container.shadow
-          game
-            button#connect Connect
-            button#disconnect Disconnect
-            button#empty Empty
-            p#received
-              strong Received Messages:
-            input#message-box(type="text" name="message")
-            button#submit Submit
-            br
-          .status
-            .button#pass Pass
-            .text Press Start Game to connect to the server!
-            .button#play Play
+        .container
+          .box.shadow
+            .game
+              button#connect Connect
+              button#disconnect Disconnect
+              button#empty Empty
+              p#received
+              input#message-box(type="text" name="message")
+              button#submit Submit
+              br
+            .status
+              .button#pass Pass
+              .text Loading...
+              .button#play Play
   script(src="http://code.jquery.com/jquery-3.3.1.min.js")
   script(src="https://is.gd/sAeEPt")
   script(src="js/target/cards.js")

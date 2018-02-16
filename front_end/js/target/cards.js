@@ -5,16 +5,14 @@ var cards;
         animationSpeed: 150,
         table: 'body',
         cardback: 'red',
-        cardsUrl: 'img/cards.png',
-        blackJoker: false,
-        redJoker: false
+        cardsUrl: 'img/cards.png'
     };
     let zIndexCounter = 1;
     cards_1.all = []; //All the cards created.
     function mouseEvent(ev) {
         let card = $(this).data('card');
         if (card.container) {
-            let handler = card.container._click;
+            let handler = card.container.clickHandler;
             if (handler) {
                 handler.func.call(handler.context || window, card, ev);
             }
@@ -28,7 +26,7 @@ var cards;
                 }
             }
         }
-        opt.table = $(opt.table)[0];
+        // opt.table = $(opt.table)[0];
         if ($(opt.table).css('position') == 'static') {
             $(opt.table).css('position', 'relative');
         }
@@ -39,16 +37,15 @@ var cards;
     }
     cards_1.init = init;
     function shuffle(deck) {
-        //Fisher yates shuffle
-        let i = deck.length;
+        let i = deck.array.length;
         if (i == 0)
             return;
         while (--i) {
             let j = Math.floor(Math.random() * (i + 1));
-            let tempi = deck[i];
-            let tempj = deck[j];
-            deck[i] = tempj;
-            deck[j] = tempi;
+            let tempi = deck.array[i];
+            let tempj = deck.array[j];
+            deck.array[i] = tempj;
+            deck.array[j] = tempi;
         }
     }
     cards_1.shuffle = shuffle;
@@ -173,7 +170,7 @@ var cards;
         }
     }
     cards_1.Card = Card;
-    class Position {
+    class Anchor {
         constructor({ left, right, top, bottom } = {}) {
             if (left !== undefined && right !== undefined) {
                 throw "Can not have left and right prop at the same time.";
@@ -191,9 +188,9 @@ var cards;
                 return this.left;
             }
             if (this.right !== undefined) {
-                return $(opt.table).width() - this.right;
+                return ($(opt.table).width() || 0) - this.right;
             }
-            return $(opt.table).width() / 2;
+            return ($(opt.table).width() || 0) / 2;
         }
         set x(xPos) {
             this.left = xPos;
@@ -203,19 +200,19 @@ var cards;
                 return this.top;
             }
             if (this.bottom !== undefined) {
-                return $(opt.table).height() - this.bottom;
+                return ($(opt.table).height() || 0) - this.bottom;
             }
-            return $(opt.table).height() / 2;
+            return ($(opt.table).height() || 0) / 2;
         }
         set y(yPos) {
             this.top = yPos;
         }
     }
-    cards_1.Position = Position;
+    cards_1.Anchor = Anchor;
     class Container {
         constructor({ position, angle, faceUp } = {}) {
             this.array = [];
-            this.position = position || new Position();
+            this.position = position || new Anchor();
             this.angle = angle || 0;
             this.faceUp = faceUp;
         }
@@ -246,13 +243,7 @@ var cards;
             return false;
         }
         click(func, context) {
-            this._click = { func, context };
-        }
-        mousedown(func, context) {
-            this._mousedown = { func, context };
-        }
-        mouseup(func, context) {
-            this._mouseup = { func, context };
+            this.clickHandler = { func, context };
         }
         render({ speed, immediate, callback } = {}) {
             this.sort();
@@ -262,13 +253,9 @@ var cards;
                 let card = this.array[i];
                 zIndexCounter++;
                 card.moveToFront();
-                // let top = parseInt($(card.el).css('top'));
-                // let left = parseInt($(card.el).css('left'));
-                // if (top != card.targetTop || left != card.targetLeft) {
                 let props = {
                     top: card.targetPosition.top,
                     left: card.targetPosition.left,
-                    queue: false
                 };
                 if (immediate) {
                     $(card.element).css(props);
@@ -276,7 +263,6 @@ var cards;
                 else {
                     $(card.element).animate(props, speed);
                 }
-                // }
             }
             let me = this;
             let flip = function () {

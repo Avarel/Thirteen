@@ -2,30 +2,26 @@ namespace cards {
     let opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 150,
-        table: 'body' as any,
+        table: 'body',
         cardback: 'red',
-        cardsUrl: 'img/cards.png',
-        blackJoker: false,
-        redJoker: false
+        cardsUrl: 'img/cards.png'
     };
-
-    type Callback<T> = (...args: any[]) => T;
 
     let zIndexCounter = 1;
 
     export let all: Card[] = []; //All the cards created.
 
-    function mouseEvent(ev) {
+    function mouseEvent(ev: any) {
         let card: Card = $(this).data('card');
         if (card.container) {
-            let handler = card.container._click;
+            let handler = card.container.clickHandler;
             if (handler) {
                 handler.func.call(handler.context || window, card, ev);
             }
         }
     }
 
-    export function init(options) {
+    export function init(options: any) {
         if (options) {
             for (let i in options) {
                 if (opt.hasOwnProperty(i)) {
@@ -34,7 +30,7 @@ namespace cards {
             }
         }
 
-        opt.table = $(opt.table)[0];
+        // opt.table = $(opt.table)[0];
         if ($(opt.table).css('position') == 'static') {
             $(opt.table).css('position', 'relative');
         }
@@ -46,16 +42,15 @@ namespace cards {
         $('.card').click(mouseEvent);
     }
 
-    export function shuffle(deck) {
-        //Fisher yates shuffle
-        let i = deck.length;
+    export function shuffle(deck: Container) {
+        let i = deck.array.length;
         if (i == 0) return;
         while (--i) {
             let j = Math.floor(Math.random() * (i + 1));
-            let tempi = deck[i];
-            let tempj = deck[j];
-            deck[i] = tempj;
-            deck[j] = tempi;
+            let tempi = deck.array[i];
+            let tempj = deck.array[j];
+            deck.array[i] = tempj;
+            deck.array[j] = tempi;
         }
     }
 
@@ -89,7 +84,7 @@ namespace cards {
             this.moveToFront();
         }
 
-        static fromID(id): Card {
+        static fromID(id: number): Card {
             if (id < 0 || id >= 52) {
                 throw "Illegal id";
             }
@@ -153,12 +148,12 @@ namespace cards {
             return `${this.suit}${this.rank}`;
         }
 
-        moveTo(x: number, y: number, speed: number, callback?) {
+        moveTo(x: number, y: number, speed: number, callback?: (this: HTMLElement) => void) {
             let props = { top: y - (opt.cardSize.height / 2), left: x - (opt.cardSize.width / 2) };
             $(this.element).animate(props, speed || opt.animationSpeed, callback);
         }
 
-        rotate(angle) {
+        rotate(angle: number) {
             $(this.element).css('transform', `rotate(${angle}deg)`);
         }
 
@@ -195,13 +190,13 @@ namespace cards {
         }
     }
 
-    export class Position {
+    export class Anchor {
         left?: number;
         right?: number;
         top?: number;
         bottom?: number;
 
-        constructor({left, right, top, bottom}: { left?: number, right?: number, top?: number, bottom?: number } = {}) {
+        constructor({ left, right, top, bottom }: { left?: number, right?: number, top?: number, bottom?: number } = {}) {
             if (left !== undefined && right !== undefined) {
                 throw "Can not have left and right prop at the same time."
             } else if (top !== undefined && right !== undefined) {
@@ -219,9 +214,9 @@ namespace cards {
                 return this.left;
             }
             if (this.right !== undefined) {
-                return $(opt.table).width() - this.right;
+                return ($(opt.table).width() || 0) - this.right;
             }
-            return $(opt.table).width() / 2;
+            return ($(opt.table).width() || 0) / 2;
         }
 
         set x(xPos) {
@@ -233,9 +228,9 @@ namespace cards {
                 return this.top;
             }
             if (this.bottom !== undefined) {
-                return $(opt.table).height() - this.bottom;
+                return ($(opt.table).height() || 0) - this.bottom;
             }
-            return $(opt.table).height() / 2;
+            return ($(opt.table).height() || 0) / 2;
         }
 
         set y(yPos) {
@@ -243,37 +238,34 @@ namespace cards {
         }
     }
 
-    interface ContainerOptions {
-        position?: Position;
-        angle?: number;
-        faceUp?: boolean;
+    export interface ContainerOptions {
+        readonly position?: Anchor;
+        readonly angle?: number;
+        readonly faceUp?: boolean;
     }
 
-    interface RenderOptions {
-        speed?: number;
-        immediate?: boolean;
-        callback?: Callback<void>;
+    export interface RenderOptions {
+        readonly speed?: number;
+        readonly immediate?: boolean;
+        readonly callback?: (...args: any[]) => void;
     }
 
     export abstract class Container {
         array: Card[];
-        position: Position;
+        position: Anchor;
         angle: number;
         faceUp: boolean;
 
-        // event handlers
-        _click: { func?: Callback<void>, context?};
-        _mousedown: { func?: Callback<void>, context?};
-        _mouseup: { func?: Callback<void>, context?};
+        clickHandler: { func: (card: Card) => void, context?: any};
 
-        constructor({position, angle, faceUp}: ContainerOptions = {}) {
+        constructor({ position, angle, faceUp }: ContainerOptions = {}) {
             this.array = [];
-            this.position = position || new Position();
+            this.position = position || new Anchor();
             this.angle = angle || 0;
             this.faceUp = faceUp;
         }
 
-        abstract calcPosition();
+        abstract calcPosition(): void;
 
         sort() {
             this.array.sort((a, b) => {
@@ -295,7 +287,7 @@ namespace cards {
             }
         }
 
-        removeCard(card) {
+        removeCard(card: Card) {
             for (let i = 0; i < this.array.length; i++) {
                 if (this.array[i] == card) {
                     this.array.splice(i, 1)
@@ -306,19 +298,11 @@ namespace cards {
         }
 
 
-        click(func: Callback<void>, context?: { func, context }) {
-            this._click = { func, context };
+        click(func: (card: Card) => void, context?: any) {
+            this.clickHandler = { func, context };
         }
 
-        mousedown(func: Callback<void>, context?: { func, context }) {
-            this._mousedown = { func, context };
-        }
-
-        mouseup(func: Callback<void>, context?: { func, context }) {
-            this._mouseup = { func, context };
-        }
-
-        render({speed, immediate, callback}: RenderOptions = {}) {
+        render({ speed, immediate, callback }: RenderOptions = {}) {
             this.sort();
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
@@ -326,20 +310,17 @@ namespace cards {
                 let card = this.array[i];
                 zIndexCounter++;
                 card.moveToFront();
-                // let top = parseInt($(card.el).css('top'));
-                // let left = parseInt($(card.el).css('left'));
-                // if (top != card.targetTop || left != card.targetLeft) {
+
                 let props = {
                     top: card.targetPosition.top,
                     left: card.targetPosition.left,
-                    queue: false
                 };
+
                 if (immediate) {
                     $(card.element).css(props as any);
                 } else {
                     $(card.element).animate(props, speed);
                 }
-                // }
             }
             let me = this;
             let flip = function () {
@@ -395,7 +376,7 @@ namespace cards {
             return 'Deck';
         }
 
-        deal(count: number, hands: Container[], speed: number, callback?) {
+        deal(count: number, hands: Container[], speed: number, callback?: () => void) {
             let me = this;
             let i = 0;
             let totalCount = count * hands.length;

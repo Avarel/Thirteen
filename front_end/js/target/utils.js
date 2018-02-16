@@ -11,7 +11,7 @@ function debounce(fn, timeout, invokeAsap, ctx) {
         clearTimeout(timer);
         timer = setTimeout(function () {
             !invokeAsap && fn.apply(ctx, args);
-            timer = null;
+            timer = undefined;
         }, timeout);
     };
 }

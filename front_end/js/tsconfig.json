@@ -2,8 +2,11 @@
   "compilerOptions": 
   {
     // "sourceMap": true,
-    "target": "es6",
+    "target": "es2016",
     "outDir": "target/",
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "suppressImplicitAnyIndexErrors": true
   },
   "include": [
     "src/**/*"

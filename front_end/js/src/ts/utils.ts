@@ -1,10 +1,10 @@
-function debounce(fn, timeout, invokeAsap?, ctx?) {
+function debounce(fn: any, timeout: number, invokeAsap?: boolean, ctx?: any): any {
     if (arguments.length == 3 && typeof invokeAsap != 'boolean') {
         ctx = invokeAsap;
         invokeAsap = false;
     }
 
-    let timer;
+    let timer: any;
 
     return function() {
         let args = arguments;
@@ -16,7 +16,7 @@ function debounce(fn, timeout, invokeAsap?, ctx?) {
 
         timer = setTimeout(function() {
             !invokeAsap && fn.apply(ctx, args);
-            timer = null;
+            timer = undefined;
         }, timeout);
     };
 }
