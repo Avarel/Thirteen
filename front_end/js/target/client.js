@@ -1,52 +1,49 @@
-var Card = cards.Card;
-var Deck = cards.Deck;
-var Hand = cards.Hand;
-var Anchor = cards.Anchor;
-//Tell the library which element to use for the table
+"use strict";
+// //Tell the library which element to use for the table
+// //Create a new deck of cards
+// let deck = new Deck();
+// //cards.all contains all cards, put them all in the deck
+// deck.addCards(...cards.all);
+// //No animation here, just get the deck onto the table.
+// deck.render({ immediate: true });
+// let displayOpts = [
+//     { faceUp: true, position: new Anchor({ bottom: 25 }), angle: 0 },
+//     { faceUp: false, position: new Anchor({ top: 0 }), angle: 180 },
+//     { faceUp: false, position: new Anchor({ left: 0 }), angle: 90 },
+//     { faceUp: false, position: new Anchor({ right: 0 }), angle: 270 }
+// ];
+// let handQueue = new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }), angle: 0 });
+// let playerCount = 4;
+// let hands = displayOpts.slice(0, playerCount).map(opt => new Hand(opt));
+// //Let's deal when the Deal button is pressed:
+// $('#deal').click(() => {
+//     //Deck has a built in method to deal to hands.
+//     if ($('#deal').hasClass("disabled")) {
+//         return;
+//     }
+//     $('#deal').addClass("disabled");
+//     $('#play').show();
+//     $('#pass').show();
+//     deck.deal(12, hands, 50);
+// });
+// //Finally, when you click a card in your hand, if it's
+// //the same suit or rank as the top card of the discard pile
+// //then it's added to it
+// hands[0].click(card => {
+//     handQueue.addCards(card);
+//     renderAll();
+// });
+// handQueue.click(card => {
+//     hands[0].addCards(card);
+//     renderAll();
+// });
+// function renderAll(options?: cards.RenderOptions) {
+//     deck.render();
+//     hands.forEach(x => x.render(options));
+//     handQueue.render(options);
+// }
+// $(window).resize(debounce(() => renderAll({ immediate: true }), 500));
 cards.init({ table: '.game' });
-//Create a new deck of cards
-let deck = new Deck();
-//cards.all contains all cards, put them all in the deck
-deck.addCards(...cards.all);
-//No animation here, just get the deck onto the table.
-deck.render({ immediate: true });
-let displayOpts = [
-    { faceUp: true, position: new Anchor({ bottom: 25 }), angle: 0 },
-    { faceUp: false, position: new Anchor({ top: 0 }), angle: 180 },
-    { faceUp: false, position: new Anchor({ left: 0 }), angle: 90 },
-    { faceUp: false, position: new Anchor({ right: 0 }), angle: 270 }
-];
-let handQueue = new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }), angle: 0 });
-let playerCount = 4;
-let hands = displayOpts.slice(0, playerCount).map(opt => new Hand(opt));
-//Let's deal when the Deal button is pressed:
-$('#deal').click(() => {
-    //Deck has a built in method to deal to hands.
-    if ($('#deal').hasClass("disabled")) {
-        return;
-    }
-    $('#deal').addClass("disabled");
-    $('#play').show();
-    $('#pass').show();
-    deck.deal(12, hands, 50);
-});
-//Finally, when you click a card in your hand, if it's
-//the same suit or rank as the top card of the discard pile
-//then it's added to it
-hands[0].click(card => {
-    handQueue.addCards(card);
-    renderAll();
-});
-handQueue.click(card => {
-    hands[0].addCards(card);
-    renderAll();
-});
-function renderAll(options) {
-    deck.render();
-    hands.forEach(x => x.render(options));
-    handQueue.render(options);
-}
-$(window).resize(debounce(() => renderAll({ immediate: true }), 500));
 var Thirteen;
 (function (Thirteen) {
     let Client;
@@ -97,18 +94,64 @@ var Thirteen;
                 case "QueueUpdate":
                     Game.status(`${payload.QueueUpdate.size}/${payload.QueueUpdate.goal} connected players!`);
                     break;
+                case "Start":
+                    Game.start(payload.Start.cards.map(ids => utils.cardsFromID(...ids)));
+                    break;
+                case "Status":
+                    Game.status(payload.Status.status);
+                    break;
+                case "Error":
+                    Game.status(payload.Error.status);
+                    break;
             }
         }
     })(Client = Thirteen.Client || (Thirteen.Client = {}));
     let Game;
     (function (Game) {
-        function status(msg) {
+        var Deck = cards.Deck;
+        var Hand = cards.Hand;
+        var Anchor = cards.Anchor;
+        let displayOpts = [
+            { faceUp: true, position: new Anchor({ bottom: 25 }), angle: 0 },
+            { faceUp: false, position: new Anchor({ top: 0 }), angle: 180 },
+            { faceUp: false, position: new Anchor({ left: 0 }), angle: 90 },
+            { faceUp: false, position: new Anchor({ right: 0 }), angle: 270 }
+        ];
+        Game.centerDeck = new Deck();
+        Game.playDeck = new Deck();
+        function reset() {
+            $('#play').hide();
+            $('#pass').hide();
+            Game.playerDecks = [];
+            Game.centerDeck.addCards(...cards.all);
+            status("Press Start Game to connect to the server!");
+            Game.centerDeck.render({ immediate: true });
+        }
+        Game.reset = reset;
+        // Thirteen.Game.start([utils.cardRange(0, 13), utils.cardRange(13, 26), utils.cardRange(26, 39), utils.cardRange(39, 52)])
+        function start(cards) {
+            $('#play').show();
+            $('#pass').show();
+            Game.playerDecks = displayOpts.slice(0, cards.length).map(opt => new Hand(opt));
+            for (let [i, d] of cards.entries()) {
+                Game.playerDecks[i].addCards(...d);
+                Game.playerDecks[i].render();
+            }
+        }
+        Game.start = start;
+        function play(cards) {
+            Game.playDeck.addCards(...cards);
+            Game.playDeck.render();
+        }
+        Game.play = play;
+        // TODO imlement duration
+        function status(msg, duration) {
             $(".status .text").text(msg);
         }
         Game.status = status;
     })(Game = Thirteen.Game || (Thirteen.Game = {}));
 })(Thirteen || (Thirteen = {}));
-Thirteen.Game.status("Press Start Game to connect to the server!");
+Thirteen.Game.reset();
 $("#connect").click(Thirteen.Client.connect);
 $("#disconnect").click(Thirteen.Client.disconnect);
 $("#empty").click(() => {

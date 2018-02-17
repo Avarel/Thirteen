@@ -3,15 +3,15 @@ namespace cards {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 150,
         table: 'body',
-        cardback: 'red',
-        cardsUrl: 'img/cards.png'
+        cardBack: 'red',
+        cardUrl: 'img/cards.png'
     };
 
     let zIndexCounter = 1;
 
     export let all: Card[] = []; //All the cards created.
 
-    function mouseEvent(ev: any) {
+    function mouseEvent(this: any, ev: any) {
         let card: Card = $(this).data('card');
         if (card.container) {
             let handler = card.container.clickHandler;
@@ -62,38 +62,33 @@ namespace cards {
     }
 
     export class Card {
-        readonly id: number;
-        faceUp: boolean;
-        container: Container;
-        targetPosition: { top: number, left: number };
+        faceUp: boolean = true;
+        container?: Container;
+        targetPosition?: { top: number, left: number };
 
-        element: JQuery<HTMLElement>;
+        element: any;
 
-        constructor(id: number) {
-            this.id = id;
-
-            this.faceUp = false;
+        constructor(readonly id: number) {
             this.element = $('<div/>').css({
-                width: opt.cardSize.width,
-                height: opt.cardSize.height,
-                "background-image": `url(${opt.cardsUrl})`,
-                position: 'absolute',
-                cursor: 'pointer'
+                "width": opt.cardSize.width,
+                "height": opt.cardSize.height,
+                "background-image": `url(${opt.cardUrl})`,
+                "position": 'absolute',
+                "cursor": 'pointer'
             }).addClass('card').data('card', this).appendTo($(opt.table));
-            this.showCard();
             this.moveToFront();
         }
 
         static fromID(id: number): Card {
             if (id < 0 || id >= 52) {
-                throw "Illegal id";
+                throw new Error("Illegal id");
             }
             return all[id];
         }
 
         static from(suit: Suit, rank: number): Card {
             if (0 > rank || rank >= 13) {
-                throw "Illegal rank";
+                throw new Error("Illegal rank");
             }
             switch (suit) {
                 case Suit.Spades:
@@ -117,7 +112,7 @@ namespace cards {
             } else if (39 <= this.id && this.id < 52) {
                 return this.id - 39;
             }
-            throw "Illegal id";
+            throw new Error("Illegal id");
         }
 
         get vcRank(): number {
@@ -141,7 +136,7 @@ namespace cards {
             } else if (39 <= this.id && this.id < 52) {
                 return Suit.Hearts;
             }
-            throw "Illegal id";
+            throw new Error("Illegal id");
         }
 
         toString(): string {
@@ -157,32 +152,32 @@ namespace cards {
             $(this.element).css('transform', `rotate(${angle}deg)`);
         }
 
-        showCard() {
-            let rank = this.rank;
+        face(direction: boolean) {
+            if (direction == true) {
+                let rank = this.rank;
 
-            let xpos = -(rank + 1) * opt.cardSize.width;
-            let ypos = opt.cardSize.height;
-            switch (this.suit) {
-                case Suit.Spades:
-                    ypos *= -3;
-                    break;
-                case Suit.Clubs:
-                    ypos *= -0;
-                    break;
-                case Suit.Diamonds:
-                    ypos *= -1;
-                    break;
-                case Suit.Hearts:
-                    ypos *= -2;
-                    break;
+                let xpos = -(rank + 1) * opt.cardSize.width;
+                let ypos = opt.cardSize.height;
+                switch (this.suit) {
+                    case Suit.Spades:
+                        ypos *= -3;
+                        break;
+                    case Suit.Clubs:
+                        ypos *= -0;
+                        break;
+                    case Suit.Diamonds:
+                        ypos *= -1;
+                        break;
+                    case Suit.Hearts:
+                        ypos *= -2;
+                        break;
+                }
+
+                $(this.element).css('background-position', `${xpos}px ${ypos}px`);
+            } else {
+                let y = opt.cardBack == 'red' ? 0 : -opt.cardSize.height;
+                $(this.element).css('background-position', '0px ' + y + 'px');
             }
-
-            $(this.element).css('background-position', `${xpos}px ${ypos}px`);
-        }
-
-        hideCard() {
-            let y = opt.cardback == 'red' ? 0 : -opt.cardSize.height;
-            $(this.element).css('background-position', '0px ' + y + 'px');
         }
 
         moveToFront() {
@@ -198,9 +193,9 @@ namespace cards {
 
         constructor({ left, right, top, bottom }: { left?: number, right?: number, top?: number, bottom?: number } = {}) {
             if (left !== undefined && right !== undefined) {
-                throw "Can not have left and right prop at the same time."
+                throw new Error("Can not have left and right prop at the same time.");
             } else if (top !== undefined && right !== undefined) {
-                throw "Can not have top and bottom prop at the same time."
+                throw new Error("Can not have top and bottom prop at the same time.");
             }
 
             this.left = left;
@@ -256,7 +251,7 @@ namespace cards {
         angle: number;
         faceUp: boolean;
 
-        clickHandler: { func: (card: Card) => void, context?: any};
+        clickHandler?: { func: (card: Card) => void, context?: any};
 
         constructor({ position, angle, faceUp }: ContainerOptions = {}) {
             this.array = [];
@@ -273,8 +268,6 @@ namespace cards {
                 return compare === 0 ? a.suit - b.suit : compare;
             });
         }
-
-        // lowerhand.addCards([12,3,4,5,6].map(cards.Card.fromID)); lowerhand.render()
 
         addCards(...cards: Card[]) {
             for (let i = 0; i < cards.length; i++) {
@@ -312,8 +305,8 @@ namespace cards {
                 card.moveToFront();
 
                 let props = {
-                    top: card.targetPosition.top,
-                    left: card.targetPosition.left,
+                    top: card.targetPosition!.top,
+                    left: card.targetPosition!.left,
                 };
 
                 if (immediate) {
@@ -322,16 +315,13 @@ namespace cards {
                     $(card.element).animate(props, speed);
                 }
             }
-            let me = this;
-            let flip = function () {
-                for (let i = 0; i < me.array.length; i++) {
-                    if (me.faceUp) {
-                        me.array[i].showCard();
-                    } else {
-                        me.array[i].hideCard();
-                    }
+
+            let flip = () => {
+                for (let i = 0; i < this.array.length; i++) {
+                    this.array[i].face(this.faceUp);
                 }
             }
+            
             if (immediate) {
                 flip();
             } else {
@@ -424,7 +414,7 @@ namespace cards {
     }
 
     export class Pile extends Container {
-        dealCounter: number;
+        dealCounter: number = 0;
 
         calcPosition() {
             let left = Math.round(this.position.x - opt.cardSize.width / 2);

@@ -5,22 +5,21 @@ pub const PROTOCOL: &'static str = "thirteen-game";
 pub const GAME_SIZE: usize = 2;
 
 use game;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Weak, RwLock};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock, Weak};
 use std::collections::{HashMap, VecDeque};
 
 pub fn start_server() {
 	println!("Starting server...");
 
 	let server = Arc::new(Server::new());
-	// server.add_instance(Instance::new(Arc::downgrade(&server), GAME_SIZE));
 
 	let mut counter = 0;
 
 	ws::listen("127.0.0.1:2794", |out| {
 		let client = ClientConnection {
 			client_id: counter,
-			game: Server::mm_instance(&server, GAME_SIZE),
+			game: Instance::mm_instance(&server, GAME_SIZE),
 			out: out.into(),
 		};
 		counter += 1;
@@ -52,24 +51,6 @@ impl Server {
 		self.mm_instances.write().unwrap().push_back(instance);
 	}
 
-	/// Get the longest-waiting instance (in this case, the front of the queue) with the desired game size.
-	/// If theres no queued instances with desired game size, create a new one.
-	pub fn mm_instance(this: &Arc<Server>, game_size: usize) -> Weak<Instance> {
-		if let Some(instance) = this.mm_instances
-			.read()
-			.unwrap()
-			.iter()
-			.find(|i| i.game_size == game_size)
-		{
-			return Arc::downgrade(instance);
-		}
-
-		let instance = Instance::new_arc(Arc::downgrade(this), GAME_SIZE);
-		let weak = Arc::downgrade(&instance);
-		this.add_instance(instance);
-		weak
-	}
-
 	/// Upgrade a matchmaking instance into a running instance.
 	pub fn upgrade_instance(&self, id: usize) {
 		let instance = self.remove_mm_instance(id);
@@ -94,9 +75,9 @@ impl Server {
 }
 
 pub struct Instance {
-	running: bool,
 	id: usize,
 	game_size: usize,
+	running: AtomicBool,
 	server: Weak<Server>,
 	local_ids: RwLock<Vec<usize>>,
 	senders: RwLock<Vec<Weak<ws::Sender>>>,
@@ -110,26 +91,88 @@ impl Drop for Instance {
 }
 
 impl Instance {
+	pub fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Self> {
+		if let Some(instance) = server
+			.mm_instances
+			.read()
+			.unwrap()
+			.iter()
+			.find(|i| i.game_size == game_size)
+		{
+			return Arc::downgrade(instance);
+		}
+
+		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
+		let weak = Arc::downgrade(&instance);
+		server.add_instance(instance);
+		weak
+	}
+
 	pub fn new_arc(server: Weak<Server>, game_size: usize) -> Arc<Self> {
 		let strong = server.upgrade().unwrap();
 		let id = strong.counter.load(Ordering::Relaxed);
 		let arc = Instance {
 			id,
-			running: false,
 			game_size,
+			running: false.into(),
 			server: server,
 			local_ids: Vec::with_capacity(game_size).into(),
 			senders: Vec::with_capacity(game_size).into(),
 			model: game::Game::new().into(),
 		}.into();
-		strong
-			.counter
-			.store(id + 1, Ordering::Relaxed);
+		strong.counter.store(id + 1, Ordering::Relaxed);
 		arc
+	}
+
+	pub fn running(&self) -> bool {
+		self.running.load(Ordering::Relaxed)
+	}
+
+	pub fn start(&self) {
+		println!("Instance {} is starting.", self.id);
+
+		self.server.upgrade().unwrap().upgrade_instance(self.id);
+		self.running.store(true, Ordering::Relaxed);
+
+		let mut game = self.model.write().unwrap();
+		game.start();
+
+		let player_count = game.players().len();
+		for local_id in 0..player_count {
+			let mut cards: Vec<Vec<u8>> = Vec::with_capacity(player_count);
+
+			let mut i = 0;
+			while i < player_count {
+				use cards::Card;
+				cards.push(
+					game.player_handle((i + local_id) % player_count)
+						.cards()
+						.iter()
+						.map(Card::into_id)
+						.collect(),
+				);
+				i += 1;
+			}
+
+			self.send_out(PayloadOut {
+				local_id: local_id,
+				data: DataOut::Start { cards: cards },
+			});
+		}
 	}
 
 	pub fn process(&self, payload: PayloadIn) {
 		unimplemented!()
+	}
+
+	pub fn send_out(&self, payload: PayloadOut) {
+		let sender = &self.senders.read().unwrap()[payload.local_id]
+			.upgrade()
+			.unwrap();
+
+		sender
+			.send(serde_json::to_string(&payload.data).unwrap())
+			.unwrap();
 	}
 
 	pub fn broadcast(&self, data: DataOut) {
@@ -158,17 +201,8 @@ impl Instance {
 		self.senders.read().unwrap().len()
 	}
 
-	pub fn send_out(&self, payload: PayloadOut) {
-		let sender = &self.senders.read().unwrap()[payload.local_id]
-			.upgrade()
-			.unwrap();
-		sender
-			.send(serde_json::to_string(&payload.data).unwrap())
-			.unwrap();
-	}
-
 	pub fn add_client(&self, id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
-		if self.connected_count() >= self.game_size {
+		if self.running() {
 			return Err(ws::Error::new(
 				ws::ErrorKind::Capacity,
 				"Attempted to connect to full game",
@@ -177,7 +211,13 @@ impl Instance {
 
 		self.senders.write().unwrap().push(sender);
 		self.local_ids.write().unwrap().push(id);
+		self.model.write().unwrap().add_player();
+
 		self.broadcast_queue_update();
+
+		if self.connected_count() >= self.game_size {
+			self.start();
+		}
 
 		Ok(())
 	}
@@ -192,8 +232,9 @@ impl Instance {
 			self.broadcast_queue_update();
 		}
 
-		if self.connected_count() == 0 {
-			if self.running {
+		if self.connected_count() <= 1 {
+			self.close();
+			if self.running() {
 				self.server.upgrade().unwrap().remove_rn_instance(self.id);
 			} else {
 				self.server.upgrade().unwrap().remove_mm_instance(self.id);
@@ -201,8 +242,22 @@ impl Instance {
 		}
 	}
 
-	pub fn local_id(&self, id: usize) -> Option<usize> {
-		self.local_ids.read().unwrap().iter().position(|&x| x == id)
+	pub fn close(&self) {
+		let mut senders = self.senders.write().unwrap();
+		senders
+			.iter()
+			.map(|w| w.upgrade().unwrap())
+			.for_each(|s| s.close(ws::CloseCode::Normal).unwrap());
+		senders.clear();
+		self.local_ids.write().unwrap().clear();
+	}
+
+	pub fn local_id(&self, client_id: usize) -> Option<usize> {
+		self.local_ids
+			.read()
+			.unwrap()
+			.iter()
+			.position(|&x| x == client_id)
 	}
 }
 
@@ -215,8 +270,9 @@ pub struct PayloadOut {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataOut {
 	QueueUpdate { size: usize, goal: usize },
-	InitializeGame { cards: Vec<Vec<u8>> },
+	Start { cards: Vec<Vec<u8>> },
 	Play { local_id: usize, cards: Vec<u8> },
+	Status { message: String },
 	Error { reason: String },
 }
 
@@ -245,7 +301,7 @@ impl ws::Handler for ClientConnection {
 		println!("Incoming: {:?}", msg);
 
 		// not ready
-		if !self.game.upgrade().unwrap().running {
+		if !self.game.upgrade().unwrap().running() {
 			return Ok(());
 		}
 
@@ -273,8 +329,7 @@ impl ws::Handler for ClientConnection {
 	fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
 		self.game
 			.upgrade()
-			.unwrap()
-			.remove_client(self.client_id, false);
+			.map(|game| game.remove_client(self.client_id, false));
 
 		match code {
 			ws::CloseCode::Normal => println!("The client is done with the connection."),

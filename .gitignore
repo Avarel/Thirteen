@@ -3,3 +3,4 @@
 Cargo.lock
 .DS_Store
 /front_end/.sass-cache/
+*.d.ts

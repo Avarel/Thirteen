@@ -98,12 +98,17 @@ impl Game {
 
     // get an abstraction
     #[inline]
-    pub fn player_controller(&mut self, local_id: usize) -> PlayerController {
+    pub fn player_handle(&mut self, local_id: usize) -> PlayerHandle {
         if local_id >= self.players.len() {
             unimplemented!()
         }
 
-        PlayerController { game: self, local_id }
+        PlayerHandle { game: self, local_id }
+    }
+
+    #[inline]
+    pub fn players(&self) -> &[Player] {
+        &self.players
     }
 
     // add a new player and return their local id
@@ -126,7 +131,7 @@ impl Game {
         let decks = partitioned_deck();
 
         for i in 0..self.players.len() {
-            self.player_controller(i).add_cards(&decks[i]);
+            self.player_handle(i).add_cards(&decks[i]);
         }
 
         self.started = true;
@@ -181,13 +186,13 @@ pub struct Player {
     cards: Vec<Card>
 }
 
-pub struct PlayerController<'game> {
+pub struct PlayerHandle<'game> {
     game: &'game mut Game,
     local_id: usize,
 }
 
 // abstraction to make player handling easier
-impl<'game> PlayerController<'game> {
+impl<'game> PlayerHandle<'game> {
     #[inline]
     pub fn cards(&self) -> &[Card] {
         &self.game.players[self.local_id].cards
@@ -269,7 +274,7 @@ impl<'game> PlayerController<'game> {
     }
 }
 
-impl<'game> fmt::Debug for PlayerController<'game> {
+impl<'game> fmt::Debug for PlayerHandle<'game> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Player( cards: {:?} )", self.cards())
     }
