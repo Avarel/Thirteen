@@ -13,19 +13,20 @@ html
         .container
           h1 Thirteen
           section.buttons
-            span.button#deal Start Game
+            span.button#connect Connect
             span.button.disabled About
       section.content
         .container
           .box.shadow
             .game
-              button#connect Connect
-              button#disconnect Disconnect
-              button#empty Empty
-              p#received
-              input#message-box(type="text" name="message")
-              button#submit Submit
-              br
+              .console
+                #received
+                // div 
+                  button#connect Connect
+                  button#disconnect Disconnect
+                  button#empty Empty
+                  input#message-box(type="text" name="message")
+                  button#submit Submit
             .status
               .button#pass Pass
               .text Loading...

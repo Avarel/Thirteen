@@ -1,5 +1,6 @@
 #![feature(iterator_step_by)]
 #![feature(try_from)]
+#![allow(dead_code)]
 
 extern crate serde;
 extern crate serde_json;

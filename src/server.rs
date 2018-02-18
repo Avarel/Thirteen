@@ -12,6 +12,23 @@ use std::collections::{HashMap, VecDeque};
 pub fn start_server() {
 	println!("Starting server...");
 
+	fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Instance> {
+		if let Some(instance) = server
+			.mm_instances
+			.read()
+			.unwrap()
+			.iter()
+			.find(|i| i.game_size == game_size)
+		{
+			return Arc::downgrade(instance);
+		}
+
+		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
+		let weak = Arc::downgrade(&instance);
+		server.add_instance(instance);
+		weak
+	}
+
 	let server = Arc::new(Server::new());
 
 	let mut counter = 0;
@@ -19,7 +36,7 @@ pub fn start_server() {
 	ws::listen("127.0.0.1:2794", |out| {
 		let client = ClientConnection {
 			client_id: counter,
-			game: Instance::mm_instance(&server, GAME_SIZE),
+			instance: mm_instance(&server, GAME_SIZE),
 			out: out.into(),
 		};
 		counter += 1;
@@ -91,23 +108,6 @@ impl Drop for Instance {
 }
 
 impl Instance {
-	pub fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Self> {
-		if let Some(instance) = server
-			.mm_instances
-			.read()
-			.unwrap()
-			.iter()
-			.find(|i| i.game_size == game_size)
-		{
-			return Arc::downgrade(instance);
-		}
-
-		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
-		let weak = Arc::downgrade(&instance);
-		server.add_instance(instance);
-		weak
-	}
-
 	pub fn new_arc(server: Weak<Server>, game_size: usize) -> Arc<Self> {
 		let strong = server.upgrade().unwrap();
 		let id = strong.counter.load(Ordering::Relaxed);
@@ -154,37 +154,148 @@ impl Instance {
 				i += 1;
 			}
 
-			self.send_out(PayloadOut {
-				local_id: local_id,
-				data: DataOut::Start { cards: cards },
-			});
+			self.send_out(local_id, &DataOut::Start { cards: cards });
+
+			self.send_out(
+				game.current_turn(),
+				&DataOut::YourTurn {
+					first_turn: true,
+					must_play: true,
+				},
+			);
 		}
 	}
 
-	pub fn process(&self, payload: PayloadIn) {
-		unimplemented!()
+	pub fn process(&self, local_id: usize, data: DataIn) {
+		match data {
+			DataIn::Pass {} => {
+				use game::PassError;
+				let mut game = self.model.write().unwrap();
+				match game.player_handle(local_id).try_pass() {
+					Ok(()) => {
+						self.send_out(local_id, &DataOut::PassSuccess {});
+
+						if game.is_new_pattern() {
+							self.broadcast(&DataOut::Discard { ids: Vec::new() });
+							self.send_out(
+								game.current_turn(),
+								&DataOut::YourTurn {
+									first_turn: false,
+									must_play: true,
+								},
+							);
+						} else {
+							self.send_out(
+								game.current_turn(),
+								&DataOut::YourTurn {
+									first_turn: false,
+									must_play: false,
+								},
+							);
+						}
+					}
+					Err(error) => {
+						self.send_out(
+							local_id,
+							&DataOut::Error {
+								reason: match error {
+									PassError::OutOfTurn => String::from("It is not your turn."),
+									PassError::MustPlay => {
+										String::from("You must play a new pattern!")
+									}
+									PassError::MustPlayLowest => String::from(
+										"You must play your lowest card for the first turn.",
+									),
+								},
+							},
+						);
+					}
+				}
+			}
+			DataIn::Play { ids } => {
+				use cards::Card;
+				use game::PlayError;
+				let mut game = self.model.write().unwrap();
+
+				let mut cards = Vec::with_capacity(ids.len());
+				for id in &ids {
+					if let Some(card) = Card::from_id(*id) {
+						cards.push(card);
+					} else {
+						self.send_out(
+							local_id,
+							&DataOut::Error {
+								reason: String::from("Invalid card IDs."),
+							},
+						);
+					}
+				}
+
+				match game.player_handle(local_id).try_play(&cards) {
+					Ok(win) => {
+						self.send_out(local_id, &DataOut::PlaySuccess {});
+						self.broadcast(&DataOut::Discard {
+							ids: cards.iter().map(Card::into_id).collect(),
+						});
+						if win {
+							for i in 0..self.connected_count() {
+								self.send_out(
+									i,
+									&DataOut::GameEnd {
+										victory: i == local_id,
+									},
+								);
+							}
+						} else {
+							self.send_out(
+								game.current_turn(),
+								&DataOut::YourTurn {
+									first_turn: false,
+									must_play: false,
+								},
+							);
+						}
+					}
+					Err(error) => {
+						self.send_out(
+							local_id,
+							&DataOut::Error {
+								reason: match error {
+									PlayError::OutOfTurn => {
+										String::from("It is not your turn! Wait a bit!")
+									}
+									PlayError::NoCards => {
+										String::from("You can't play nothing!")
+									}
+									PlayError::MustPlayLowest => String::from(
+										"You must play your lowest card for the first turn.",
+									),
+									PlayError::ForgedCards => {
+										String::from("Are you trying to cheat?")
+									}
+									PlayError::BadPlay => String::from(
+										"You can not play those cards on this pattern!",
+									),
+								},
+							},
+						);
+					}
+				}
+			}
+		}
+		// unimplemented!()
 	}
 
-	pub fn send_out(&self, payload: PayloadOut) {
-		let sender = &self.senders.read().unwrap()[payload.local_id]
-			.upgrade()
-			.unwrap();
+	pub fn send_out(&self, local_id: usize, data: &DataOut) {
+		let sender = &self.senders.read().unwrap()[local_id].upgrade().unwrap();
 
-		sender
-			.send(serde_json::to_string(&payload.data).unwrap())
-			.unwrap();
+		sender.send(serde_json::to_string(data).unwrap()).unwrap();
 	}
 
-	pub fn broadcast(&self, data: DataOut) {
-		println!("Sending out: {:?}", data);
-		self.senders
-			.read()
-			.unwrap()
-			.iter()
-			.map(|w| w.upgrade().unwrap())
-			.for_each(|s| {
-				s.send(serde_json::to_string(&data).unwrap()).unwrap();
-			});
+	pub fn broadcast(&self, data: &DataOut) {
+		for i in 0..self.connected_count() {
+			self.send_out(i, data);
+		}
 	}
 
 	#[inline]
@@ -193,7 +304,7 @@ impl Instance {
 			size: self.senders.read().unwrap().len(),
 			goal: self.game_size,
 		};
-		self.broadcast(data);
+		self.broadcast(&data);
 	}
 
 	#[inline]
@@ -201,7 +312,7 @@ impl Instance {
 		self.senders.read().unwrap().len()
 	}
 
-	pub fn add_client(&self, id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
+	pub fn add_client(&self, client_id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
 		if self.running() {
 			return Err(ws::Error::new(
 				ws::ErrorKind::Capacity,
@@ -210,7 +321,7 @@ impl Instance {
 		}
 
 		self.senders.write().unwrap().push(sender);
-		self.local_ids.write().unwrap().push(id);
+		self.local_ids.write().unwrap().push(client_id);
 		self.model.write().unwrap().add_player();
 
 		self.broadcast_queue_update();
@@ -222,14 +333,13 @@ impl Instance {
 		Ok(())
 	}
 
-	pub fn remove_client(&self, id: usize, close: bool) {
-		if let Some(local_id) = self.local_id(id) {
+	pub fn remove_client(&self, client_id: usize, close: bool) {
+		if let Some(local_id) = self.local_id(client_id) {
 			let sender = self.senders.write().unwrap().remove(local_id);
 			if close {
 				sender.upgrade().map(|s| s.close(ws::CloseCode::Normal));
 			}
 			self.local_ids.write().unwrap().remove(local_id);
-			self.broadcast_queue_update();
 		}
 
 		if self.connected_count() <= 1 {
@@ -239,6 +349,8 @@ impl Instance {
 			} else {
 				self.server.upgrade().unwrap().remove_mm_instance(self.id);
 			}
+		} else {
+			self.broadcast_queue_update();
 		}
 	}
 
@@ -261,36 +373,32 @@ impl Instance {
 	}
 }
 
-#[derive(Debug)]
-pub struct PayloadOut {
-	local_id: usize,
-	data: DataOut,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataOut {
 	QueueUpdate { size: usize, goal: usize },
 	Start { cards: Vec<Vec<u8>> },
-	Play { local_id: usize, cards: Vec<u8> },
+	Discard { ids: Vec<u8> },
+
+	GameEnd { victory: bool },
+	PlaySuccess {},
+	PassSuccess {},
+
+	YourTurn { first_turn: bool, must_play: bool },
+	EndTurn {},
+
 	Status { message: String },
 	Error { reason: String },
-}
-
-#[derive(Debug)]
-pub struct PayloadIn {
-	client_id: usize,
-	data: DataIn,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataIn {
 	Pass {},
-	Play { cards: Vec<u8> },
+	Play { ids: Vec<u8> },
 }
 
 struct ClientConnection {
 	client_id: usize,
-	game: Weak<Instance>,
+	instance: Weak<Instance>,
 
 	// output to client
 	out: Arc<ws::Sender>,
@@ -298,20 +406,16 @@ struct ClientConnection {
 
 impl ws::Handler for ClientConnection {
 	fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
-		println!("Incoming: {:?}", msg);
-
 		// not ready
-		if !self.game.upgrade().unwrap().running() {
+		if !self.instance.upgrade().unwrap().running() {
 			return Ok(());
 		}
 
 		match msg {
 			ws::Message::Text(buf) => match serde_json::from_str::<DataIn>(&buf) {
 				Ok(data) => {
-					self.game.upgrade().unwrap().process(PayloadIn {
-						client_id: self.client_id,
-						data,
-					});
+					let instance = self.instance.upgrade().unwrap();
+					instance.process(instance.local_id(self.client_id).unwrap(), data);
 					Ok(())
 				}
 				Err(_) => Err(ws::Error::new(
@@ -327,7 +431,7 @@ impl ws::Handler for ClientConnection {
 	}
 
 	fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
-		self.game
+		self.instance
 			.upgrade()
 			.map(|game| game.remove_client(self.client_id, false));
 
@@ -339,7 +443,7 @@ impl ws::Handler for ClientConnection {
 	}
 
 	fn on_open(&mut self, _: ws::Handshake) -> ws::Result<()> {
-		self.game
+		self.instance
 			.upgrade()
 			.unwrap()
 			.add_client(self.client_id, Arc::downgrade(&self.out))?;

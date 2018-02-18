@@ -11,7 +11,7 @@ namespace cards {
 
     export let all: Card[] = []; //All the cards created.
 
-    function mouseEvent(this: any, ev: any) {
+    function mouseEvent(this: any, ev: any): void {
         let card: Card = $(this).data('card');
         if (card.container) {
             let handler = card.container.clickHandler;
@@ -21,7 +21,7 @@ namespace cards {
         }
     }
 
-    export function init(options: any) {
+    export function init(options: any): void {
         if (options) {
             for (let i in options) {
                 if (opt.hasOwnProperty(i)) {
@@ -42,7 +42,7 @@ namespace cards {
         $('.card').click(mouseEvent);
     }
 
-    export function shuffle(deck: Container) {
+    export function shuffle(deck: Container): void {
         let i = deck.array.length;
         if (i == 0) return;
         while (--i) {
@@ -62,10 +62,10 @@ namespace cards {
     }
 
     export class Card {
-        faceUp: boolean = true;
+        faceUp: boolean = false;
         container?: Container;
         targetPosition?: { top: number, left: number };
-
+        hidden: boolean = false;
         element: any;
 
         constructor(readonly id: number) {
@@ -76,6 +76,7 @@ namespace cards {
                 "position": 'absolute',
                 "cursor": 'pointer'
             }).addClass('card').data('card', this).appendTo($(opt.table));
+            this.face(false);
             this.moveToFront();
         }
 
@@ -152,8 +153,8 @@ namespace cards {
             $(this.element).css('transform', `rotate(${angle}deg)`);
         }
 
-        face(direction: boolean) {
-            if (direction == true) {
+        face(up: boolean) {
+            if (up) {
                 let rank = this.rank;
 
                 let xpos = -(rank + 1) * opt.cardSize.width;
@@ -180,7 +181,17 @@ namespace cards {
             }
         }
 
-        moveToFront() {
+        show(): void {
+            this.hidden = false;
+            $(this.element).show();
+        }
+
+        hide(): void {
+            this.hidden = true;
+            $(this.element).hide();
+        }
+
+        moveToFront(): void {
             $(this.element).css('z-index', zIndexCounter++);
         }
     }
@@ -237,6 +248,7 @@ namespace cards {
         readonly position?: Anchor;
         readonly angle?: number;
         readonly faceUp?: boolean;
+        readonly hidden?: boolean;
     }
 
     export interface RenderOptions {
@@ -250,26 +262,32 @@ namespace cards {
         position: Anchor;
         angle: number;
         faceUp: boolean;
+        hidden: boolean;
 
         clickHandler?: { func: (card: Card) => void, context?: any};
 
-        constructor({ position, angle, faceUp }: ContainerOptions = {}) {
+        constructor({ position, angle, faceUp, hidden }: ContainerOptions = {}) {
             this.array = [];
             this.position = position || new Anchor();
             this.angle = angle || 0;
             this.faceUp = faceUp;
+            this.hidden = hidden;
         }
 
         abstract calcPosition(): void;
 
-        sort() {
+        clear(): void {
+            this.array.length = 0;
+        }
+
+        sort(): void {
             this.array.sort((a, b) => {
                 let compare = a.vcRank - b.vcRank;
                 return compare === 0 ? a.suit - b.suit : compare;
             });
         }
 
-        addCards(...cards: Card[]) {
+        addCards(...cards: Card[]): void {
             for (let i = 0; i < cards.length; i++) {
                 let card = cards[i];
                 if (card.container) {
@@ -280,7 +298,7 @@ namespace cards {
             }
         }
 
-        removeCard(card: Card) {
+        removeCard(card: Card): boolean {
             for (let i = 0; i < this.array.length; i++) {
                 if (this.array[i] == card) {
                     this.array.splice(i, 1)
@@ -291,14 +309,16 @@ namespace cards {
         }
 
 
-        click(func: (card: Card) => void, context?: any) {
+        click(func: (card: Card) => void, context?: any): void {
             this.clickHandler = { func, context };
         }
 
-        render({ speed, immediate, callback }: RenderOptions = {}) {
+        render({ speed, immediate, callback }: RenderOptions = {}): void {
             this.sort();
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
+
+
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
                 zIndexCounter++;
@@ -316,16 +336,22 @@ namespace cards {
                 }
             }
 
-            let flip = () => {
+            let update = () => {
                 for (let i = 0; i < this.array.length; i++) {
                     this.array[i].face(this.faceUp);
                 }
-            }
+
+                if (this.hidden) {
+                    this.hide();
+                } else {
+                    this.show();
+                }            
+            };
             
             if (immediate) {
-                flip();
+                update();
             } else {
-                setTimeout(flip, speed / 2);
+                setTimeout(update, speed);
             }
 
             if (callback) {
@@ -337,7 +363,21 @@ namespace cards {
             return this.array[this.array.length - 1];
         }
 
-        toString() {
+        show(): void {
+            this.hidden = false;
+            for (let card of this.array) {
+                card.show();
+            }
+        }
+
+        hide(): void {
+            this.hidden = true;
+            for (let card of this.array) {
+                card.hide();
+            }
+        }
+
+        toString(): string {
             return 'Container';
         }
     }
@@ -347,7 +387,7 @@ namespace cards {
             super(options);
         }
 
-        calcPosition() {
+        calcPosition(): void {
             let left = Math.round(this.position.x - opt.cardSize.width / 2);
             let top = Math.round(this.position.y - opt.cardSize.height / 2);
             let condenseCount = 6;
@@ -370,7 +410,7 @@ namespace cards {
             let me = this;
             let i = 0;
             let totalCount = count * hands.length;
-            function dealOne() {
+            function dealOne(): void {
                 if (me.array.length == 0 || i == totalCount) {
                     if (callback) {
                         callback();
@@ -390,7 +430,7 @@ namespace cards {
             super(options);
         }
 
-        calcPosition() {
+        calcPosition(): void {
             let paddingCount = this.array.length - 1;
             let angle = this.angle * (Math.PI / 180);
             let width = opt.cardSize.width + paddingCount * opt.cardSize.padding * Math.cos(angle);
@@ -408,7 +448,7 @@ namespace cards {
             }
         }
 
-        toString() {
+        toString(): string {
             return 'Hand' + super.toString();
         }
     }
@@ -416,7 +456,7 @@ namespace cards {
     export class Pile extends Container {
         dealCounter: number = 0;
 
-        calcPosition() {
+        calcPosition(): void {
             let left = Math.round(this.position.x - opt.cardSize.width / 2);
             let top = Math.round(this.position.y - opt.cardSize.height / 2);
 

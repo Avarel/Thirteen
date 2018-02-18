@@ -66,31 +66,40 @@ impl fmt::Display for Pattern {
     }
 }
 
-pub enum TurnError {
+pub enum PlayError {
+    NoCards,        // player tried to play nothing
     OutOfTurn,
     ForgedCards, // player tried to play cards that they don't have
-    BadTurn,     // player tried to play on turn but it didn't work out
+    BadPlay,     // player tried to play on turn but it didn't work out
+    MustPlayLowest,   // at the start of game, player must play their lowest card
+}
+
+pub enum PassError {
+    OutOfTurn,
+    MustPlay,        // the player can not pass this turn
+    MustPlayLowest,  // the player must play on the first turn of the game
 }
 
 pub struct Game {
     started: bool, // has the game started
 
-    new_round: bool,     // is it a new round? can you start a new pattern?
+    new_pattern: bool,     // is it a new round? can you start a new pattern?
     pass_count: usize,   // how many people passed
     current_turn: usize, // whose turn is it currently
+    mandatory_card: Option<Card>,
 
     players: Vec<Player>, // cards of the players of the game
-
-    pub history: Vec<Turn>, // past turns
+    history: Vec<Turn>,   // past turns
 }
 
 impl Game {
     pub fn new() -> Self {
         Game {
             started: false,
-            new_round: true,
+            new_pattern: true,
             pass_count: 0,
             current_turn: 0,
+            mandatory_card: None,
             players: Vec::new(),
             history: Vec::new(),
         }
@@ -103,12 +112,25 @@ impl Game {
             unimplemented!()
         }
 
-        PlayerHandle { game: self, local_id }
+        PlayerHandle {
+            game: self,
+            local_id,
+        }
     }
 
     #[inline]
     pub fn players(&self) -> &[Player] {
         &self.players
+    }
+
+    #[inline]
+    pub fn current_turn(&self) -> usize {
+        self.current_turn
+    }
+
+    #[inline]
+    pub fn is_new_pattern(&self) -> bool {
+        self.new_pattern
     }
 
     // add a new player and return their local id
@@ -126,13 +148,27 @@ impl Game {
         if self.started {
             unimplemented!()
         }
+        if self.players.len() == 0 {
+            unimplemented!()
+        }
 
         use cards::partitioned_deck;
-        let decks = partitioned_deck();
+        let mut decks = partitioned_deck();
 
         for i in 0..self.players.len() {
+            decks[i].sort();
             self.player_handle(i).add_cards(&decks[i]);
         }
+
+        // find lowest turn and force the card
+        let (current_turn, card) = self.players
+            .iter()
+            .enumerate()
+            .min_by_key(|p| p.1.cards[0])
+            .map(|e| (e.0, e.1.cards[0]))
+            .unwrap();
+        self.current_turn = current_turn;
+        self.mandatory_card = Some(card);
 
         self.started = true;
     }
@@ -183,7 +219,7 @@ impl Turn {
 }
 
 pub struct Player {
-    cards: Vec<Card>
+    cards: Vec<Card>,
 }
 
 pub struct PlayerHandle<'game> {
@@ -221,45 +257,66 @@ impl<'game> PlayerHandle<'game> {
         cards.iter().all(|c| self.cards().contains(c))
     }
 
-    pub fn play(&mut self, cards: Vec<Card>) -> Result<(), TurnError> {
+    // Ok(bool)
+    //      true if the player won, false if the game continues
+    // Err(TurnError)
+    //      player made an game error
+    pub fn try_play(&mut self, cards: &[Card]) -> Result<bool, PlayError> {
         if !self.game.started {
             unimplemented!()
         }
 
         if self.game.current_turn != self.local_id {
-            return Err(TurnError::OutOfTurn);
+            return Err(PlayError::OutOfTurn);
+        } else if cards.len() == 0 {
+            return Err(PlayError::NoCards);
         } else if !self.has(&cards) {
-            return Err(TurnError::ForgedCards);
+            return Err(PlayError::ForgedCards);
         }
 
-        let turn: Turn = cards.as_slice().into();
+        let turn: Turn = cards.into();
 
-        if self.game.new_round {
+        if self.game.new_pattern {
+            if let Some(must_play) = self.game.mandatory_card {
+                if cards[0] != must_play {
+                    return Err(PlayError::MustPlayLowest);
+                }
+                self.game.mandatory_card = None;
+            }
+
             if turn.pattern == Pattern::Invalid {
-                return Err(TurnError::BadTurn);
+                return Err(PlayError::BadPlay);
             }
             self.game.history.push(turn);
             self.game.next_turn();
-            self.game.new_round = false;
+            self.game.new_pattern = false;
         } else if turn.gt(self.game.history.last().unwrap()) {
             self.game.history.push(turn);
             self.game.next_turn();
         } else {
-            return Err(TurnError::BadTurn);
+            return Err(PlayError::BadPlay);
         }
 
         self.remove_cards(&cards);
 
-        Ok(())
+        Ok(self.cards().len() == 0)
     }
 
-    pub fn pass(&mut self) -> Result<(), TurnError> {
+    pub fn try_pass(&mut self) -> Result<(), PassError> {
         if !self.game.started {
             unimplemented!()
         }
 
         if self.game.current_turn != self.local_id {
-            return Err(TurnError::OutOfTurn);
+            return Err(PassError::OutOfTurn);
+        }
+
+        if self.game.new_pattern {
+            return Err(PassError::MustPlay);
+        }
+        
+        if let Some(_) = self.game.mandatory_card { 
+            return Err(PassError::MustPlayLowest);
         }
 
         self.game.next_turn();
@@ -267,7 +324,7 @@ impl<'game> PlayerHandle<'game> {
 
         if self.game.pass_count >= self.game.players.len() - 1 {
             self.game.pass_count = 0;
-            self.game.new_round = true;
+            self.game.new_pattern = true;
         }
 
         Ok(())

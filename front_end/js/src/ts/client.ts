@@ -63,11 +63,11 @@ namespace Thirteen {
 
         export function connect() {
             if (connection) {
-                write_to_log("Already connected to server!");
+                log("Already connected to server!");
                 return;
             }
-        
-            write_to_log("Connecting to server...");
+
+            log("Connecting to server...");
             connection = new WebSocket("ws://127.0.0.1:2794", "thirteen-game");
             connection.onmessage = event => process(event);
             connection.onclose = disconnect;
@@ -75,49 +75,78 @@ namespace Thirteen {
 
         export function disconnect() {
             if (!connection) {
-                write_to_log("You're not connected to the server!");
+                log("You're not connected to the server!");
                 return;
             }
-        
-            write_to_log("Disconnecting from server.");
+
+            log("Disconnecting from server.");
             Game.status("Press Start Game to connect to the server!");
-            connection.onclose = () => {};
+            Game.reset();
+            connection.onclose = () => { };
             connection.close(1000, "im done");
             connection = undefined;
         }
 
         export function send(data: any) {
             if (!connection) {
-                write_to_log("Tried to send something but not connected.");
+                log("Tried to send something but not connected.");
                 return;
             }
             connection.send(JSON.stringify(data));
         }
 
-        export function write_to_log(msg: string) {
-            let received = $("#received");
-            let br = document.createElement("br");
-            let text = document.createTextNode(msg);
-            received.append(br, text);
+        export function log(msg: string) {
+            console.log(msg);
+            // let received = $("#received");
+
+            // let text = document.createTextNode(msg);
+            // let br = document.createElement("br");
+            // received.append(text, br);
+
+            // received.scrollTop(received.prop("scrollHeight"));
         }
 
         function process(event: MessageEvent) {
-            write_to_log(event.data);
-        
             let payload = JSON.parse(event.data);
-        
+
             switch (Object.keys(payload)[0]) {
                 case "QueueUpdate":
                     Game.status(`${payload.QueueUpdate.size}/${payload.QueueUpdate.goal} connected players!`);
                     break;
                 case "Start":
                     Game.start((payload.Start.cards as number[][]).map(ids => utils.cardsFromID(...ids)));
+                    Game.status("The game has started! Wait for your turn!");
                     break;
                 case "Status":
-                    Game.status(payload.Status.status);
+                    Game.status(payload.Status.message);
                     break;
                 case "Error":
-                    Game.status(payload.Error.status);
+                    Game.status(payload.Error.reason);
+                    break;
+                case "Discard":
+                    Game.discard(utils.cardsFromID(...payload.Discard.ids));
+                    break;
+                case "YourTurn": {
+                    let event: any = payload.YourTurn;
+                    Game.startTurn(event.first_turn, event.must_play);
+                    Game.status("It is your turn!");
+                    break;
+                }
+                case "PlaySuccess":
+                    Game.endTurn();
+                    Game.status("Great play!");
+                    break;
+                case "PassSuccess":
+                    Game.endTurn();
+                    Game.status("You passed for this turn!");
+                    break;
+                case "GameEnd":
+                    if (payload.GameEnd.victory) {
+                        Game.status("You won!");
+                    } else {
+                        Game.status("You lost!");
+                    }
+                    setTimeout(Thirteen.Client.disconnect, 5000);
                     break;
             }
         }
@@ -136,61 +165,116 @@ namespace Thirteen {
             { faceUp: false, position: new Anchor({ right: 0 }), angle: 270 }
         ];
 
-        export let centerDeck = new Deck();
-        export let playDeck = new Deck();
-        export let playerDecks: Hand[];
+        export let dealDeck = new Deck();
+        export let discardHand = new Hand({ faceUp: true });
+        export let playerHands: Hand[];
+
+        export let myQueue = new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }), angle: 0 });
+        export let myHand: Hand;
 
         export function reset() {
             $('#play').hide();
             $('#pass').hide();
 
-            playerDecks = [];
+            // Client.disconnect();
 
-            centerDeck.addCards(...cards.all);
+            playerHands = [];
+
+            dealDeck.addCards(...cards.all);
+
             status("Press Start Game to connect to the server!");
-            centerDeck.render({ immediate: true });
+
+            renderAll({ speed: 2000, callback: () => dealDeck.show() });
         }
 
-        // Thirteen.Game.start([utils.cardRange(0, 13), utils.cardRange(13, 26), utils.cardRange(26, 39), utils.cardRange(39, 52)])
-
         export function start(cards: Card[][]) {
-            $('#play').show();
-            $('#pass').show();
-
-            playerDecks = displayOpts.slice(0, cards.length).map(opt => new Hand(opt));
+            playerHands = displayOpts.slice(0, cards.length).map(opt => new Hand(opt));
             for (let [i, d] of cards.entries()) {
-                playerDecks[i].addCards(...d);
-                playerDecks[i].render();
+                playerHands[i].addCards(...d);
+                playerHands[i].render({ speed: 2000 });
+            }
+            myHand = playerHands[0];
+
+            dealDeck.hide();
+
+            $('#pass').click(() => {
+                Client.send({ Pass: {} });
+            });
+
+            $('#play').click(() => {
+                Client.send({ Play: { ids: myQueue.array.map(c => c.id) } });
+            });
+
+            playerHands[0].click(card => {
+                myQueue.addCards(card);
+                myQueue.render();
+                myHand.render();
+            });
+
+            myQueue.click(card => {
+                myHand.addCards(card);
+                myHand.render();
+                myQueue.render();
+            });
+        }
+
+        export function discard(cards: Card[]) {
+            dealDeck.addCards(...discardHand.array);
+            discardHand.addCards(...cards);
+            renderAll();
+        }
+
+        export function startTurn(firstTurn: boolean, mustPlay: boolean) {
+            $('#play').show();
+
+            if (!mustPlay) {
+                $('#pass').show();
             }
         }
 
-        export function play(cards: Card[]) {
-            playDeck.addCards(...cards);
-            playDeck.render();
+        export function endTurn() {
+            $('#play').hide();
+            $('#pass').hide();
         }
 
         // TODO imlement duration
         export function status(msg: string, duration?: number) {
             $(".status .text").text(msg);
         }
+
+        function renderAll(options?: cards.RenderOptions) {
+            dealDeck.render(options);
+            discardHand.render(options);
+            playerHands.forEach(x => x.render(options));
+            myQueue.render(options);
+        }
+
+        $(window).resize(utils.debounce(() => renderAll({ immediate: true }), 500));
     }
 }
 
 Thirteen.Game.reset();
 
+$("#connect").click(() => {
+    if ($("#connect").text() == "Connect") {
+        Thirteen.Client.connect();
+        $("#connect").text("Disconnect");
+    } else {
+        Thirteen.Client.disconnect();
+        $("#connect").text("Connect");
+    }
+})
 
 
+// $("#connect").click(Thirteen.Client.connect);
 
+// $("#disconnect").click(Thirteen.Client.disconnect);
 
-$("#connect").click(Thirteen.Client.connect);
+// $("#empty").click(() => {
+//     $("#received").empty();
+// });
 
-$("#disconnect").click(Thirteen.Client.disconnect);
-
-$("#empty").click(() => {
-    $("#received").empty();
-});
-
-$("#submit").click(() => {
-    let input = $("#message-box").val()
-    Thirteen.Client.send(input);
-});
+// $("#submit").click(() => {
+//     let input = $("#message-box").val()
+//     Thirteen.Client.send(input);
+// });
