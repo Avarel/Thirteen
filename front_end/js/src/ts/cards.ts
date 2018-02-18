@@ -7,7 +7,7 @@ namespace cards {
         cardUrl: 'img/cards.png'
     };
 
-    let zIndexCounter = 1;
+    export let zIndexCounter = 1;
 
     export let all: Card[] = []; //All the cards created.
 
@@ -194,6 +194,17 @@ namespace cards {
         moveToFront(): void {
             $(this.element).css('z-index', zIndexCounter++);
         }
+
+        static adjustZIndices(): void {
+            let cards = all.slice();
+            cards.sort((a, b) => {
+                return $(a.element).css('z-index') - $(b.element).css('z-index')
+            });
+            for (let i = 0; i < cards.length; i++) {
+                $(cards[i].element).css('z-index', i);
+            }
+            zIndexCounter = cards.length;
+        }
     }
 
     export class Anchor {
@@ -318,10 +329,12 @@ namespace cards {
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
 
+            if (zIndexCounter > 500) {
+                Card.adjustZIndices();
+            }
 
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
-                zIndexCounter++;
                 card.moveToFront();
 
                 let props = {

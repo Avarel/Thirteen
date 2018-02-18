@@ -71,6 +71,11 @@ namespace Thirteen {
             connection = new WebSocket("ws://127.0.0.1:2794", "thirteen-game");
             connection.onmessage = event => process(event);
             connection.onclose = disconnect;
+
+            connection.onopen = () => {
+                $("#connect").text("Disconnect");
+                $('#connect').removeClass("disabled");
+            };
         }
 
         export function disconnect() {
@@ -82,9 +87,12 @@ namespace Thirteen {
             log("Disconnecting from server.");
             Game.status("Press Start Game to connect to the server!");
             Game.reset();
-            connection.onclose = () => { };
+            connection.onclose = undefined as any;
             connection.close(1000, "im done");
             connection = undefined;
+
+            $("#connect").text("Connect");
+            $('#connect').removeClass("disabled");
         }
 
         export function send(data: any) {
@@ -158,6 +166,8 @@ namespace Thirteen {
         import Hand = cards.Hand;
         import Anchor = cards.Anchor;
 
+        let nameTags = $('.name-tag');
+
         let displayOpts: cards.ContainerOptions[] = [
             { faceUp: true, position: new Anchor({ bottom: 25 }), angle: 0 },
             { faceUp: false, position: new Anchor({ top: 0 }), angle: 180 },
@@ -176,8 +186,7 @@ namespace Thirteen {
             $('#play').hide();
             $('#pass').hide();
 
-            // Client.disconnect();
-
+            nameTags.hide();
             playerHands = [];
 
             dealDeck.addCards(...cards.all);
@@ -196,6 +205,10 @@ namespace Thirteen {
             myHand = playerHands[0];
 
             dealDeck.hide();
+
+            for (let i = 0; i < cards.length; i++) {
+                $(nameTags[i]).show();
+            }
 
             $('#pass').click(() => {
                 Client.send({ Pass: {} });
@@ -256,13 +269,14 @@ namespace Thirteen {
 Thirteen.Game.reset();
 
 $("#connect").click(() => {
-    if ($("#connect").text() == "Connect") {
+    if ($('#connect').hasClass("disabled")) {
+        return;
+    } else if ($("#connect").text() == "Connect") {
         Thirteen.Client.connect();
-        $("#connect").text("Disconnect");
     } else {
         Thirteen.Client.disconnect();
-        $("#connect").text("Connect");
     }
+    $('#connect').addClass("disabled");
 })
 
 
