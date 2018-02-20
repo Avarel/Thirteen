@@ -96,15 +96,9 @@ pub struct Instance {
 	game_size: usize,
 	running: AtomicBool,
 	server: Weak<Server>,
-	local_ids: RwLock<Vec<usize>>,
-	senders: RwLock<Vec<Weak<ws::Sender>>>,
+	local_ids: RwLock<Vec<Option<usize>>>,
+	senders: RwLock<Vec<Option<Weak<ws::Sender>>>>,
 	model: RwLock<game::Game>,
-}
-
-impl Drop for Instance {
-	fn drop(&mut self) {
-		println!("Instance #{} is getting dropped", self.id)
-	}
 }
 
 impl Instance {
@@ -138,31 +132,34 @@ impl Instance {
 		game.start();
 
 		let player_count = game.players().len();
+
+		let mut cards: Vec<Vec<u8>> = Vec::with_capacity(player_count);
+
+		for i in 0..player_count {
+			use cards::Card;
+			cards.push(
+				game.player_handle(i)
+					.cards()
+					.iter()
+					.map(Card::into_id)
+					.collect(),
+			);
+		}
+
 		for local_id in 0..player_count {
-			let mut cards: Vec<Vec<u8>> = Vec::with_capacity(player_count);
-
-			let mut i = 0;
-			while i < player_count {
-				use cards::Card;
-				cards.push(
-					game.player_handle((i + local_id) % player_count)
-						.cards()
-						.iter()
-						.map(Card::into_id)
-						.collect(),
-				);
-				i += 1;
-			}
-
-			self.send_out(local_id, &DataOut::Start { cards: cards });
-
 			self.send_out(
-				game.current_turn(),
-				&DataOut::YourTurn {
-					first_turn: true,
-					must_play: true,
+				local_id,
+				&DataOut::Start {
+					your_id: local_id,
+					card_ids: cards.clone(),
 				},
 			);
+
+			self.broadcast(&DataOut::TurnUpdate {
+				player_id: game.current_turn(),
+				first_turn: true,
+				must_play: true,
+			});
 		}
 	}
 
@@ -176,18 +173,21 @@ impl Instance {
 						self.send_out(local_id, &DataOut::PassSuccess {});
 
 						if game.is_new_pattern() {
-							self.broadcast(&DataOut::Discard { ids: Vec::new() });
-							self.send_out(
-								game.current_turn(),
-								&DataOut::YourTurn {
+							self.broadcast(&DataOut::Discard {
+								player_id: local_id,
+								card_ids: Vec::new(),
+							});
+							self.broadcast(
+								&DataOut::TurnUpdate {
+									player_id: game.current_turn(),
 									first_turn: false,
 									must_play: true,
 								},
 							);
 						} else {
-							self.send_out(
-								game.current_turn(),
-								&DataOut::YourTurn {
+							self.broadcast(
+								&DataOut::TurnUpdate {
+									player_id: game.current_turn(),
 									first_turn: false,
 									must_play: false,
 								},
@@ -235,21 +235,17 @@ impl Instance {
 					Ok(win) => {
 						self.send_out(local_id, &DataOut::PlaySuccess {});
 						self.broadcast(&DataOut::Discard {
-							ids: cards.iter().map(Card::into_id).collect(),
+							player_id: local_id,
+							card_ids: cards.iter().map(Card::into_id).collect(),
 						});
 						if win {
-							for i in 0..self.connected_count() {
-								self.send_out(
-									i,
-									&DataOut::GameEnd {
-										victory: i == local_id,
-									},
-								);
-							}
+							self.broadcast(&DataOut::GameEnd {
+								victor_id: local_id,
+							});
 						} else {
-							self.send_out(
-								game.current_turn(),
-								&DataOut::YourTurn {
+							self.broadcast(
+								&DataOut::TurnUpdate {
+									player_id: game.current_turn(),
 									first_turn: false,
 									must_play: false,
 								},
@@ -264,9 +260,7 @@ impl Instance {
 									PlayError::OutOfTurn => {
 										String::from("It is not your turn! Wait a bit!")
 									}
-									PlayError::NoCards => {
-										String::from("You can't play nothing!")
-									}
+									PlayError::NoCards => String::from("You can't play nothing!"),
 									PlayError::MustPlayLowest => String::from(
 										"You must play your lowest card for the first turn.",
 									),
@@ -287,15 +281,23 @@ impl Instance {
 	}
 
 	pub fn send_out(&self, local_id: usize, data: &DataOut) {
-		let sender = &self.senders.read().unwrap()[local_id].upgrade().unwrap();
+		let sender = &self.senders.read().unwrap()[local_id]
+			.as_ref()
+			.unwrap()
+			.upgrade()
+			.unwrap();
 
 		sender.send(serde_json::to_string(data).unwrap()).unwrap();
 	}
 
 	pub fn broadcast(&self, data: &DataOut) {
-		for i in 0..self.connected_count() {
-			self.send_out(i, data);
-		}
+		self.senders
+			.read()
+			.unwrap()
+			.iter()
+			.filter_map(|o| o.as_ref())
+			.map(|w| w.upgrade().unwrap())
+			.for_each(|sender| sender.send(serde_json::to_string(data).unwrap()).unwrap());
 	}
 
 	#[inline]
@@ -309,7 +311,12 @@ impl Instance {
 
 	#[inline]
 	pub fn connected_count(&self) -> usize {
-		self.senders.read().unwrap().len()
+		self.senders
+			.read()
+			.unwrap()
+			.iter()
+			.filter_map(|o| o.as_ref())
+			.count()
 	}
 
 	pub fn add_client(&self, client_id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
@@ -320,8 +327,8 @@ impl Instance {
 			));
 		}
 
-		self.senders.write().unwrap().push(sender);
-		self.local_ids.write().unwrap().push(client_id);
+		self.senders.write().unwrap().push(Some(sender));
+		self.local_ids.write().unwrap().push(Some(client_id));
 		self.model.write().unwrap().add_player();
 
 		self.broadcast_queue_update();
@@ -335,11 +342,19 @@ impl Instance {
 
 	pub fn remove_client(&self, client_id: usize, close: bool) {
 		if let Some(local_id) = self.local_id(client_id) {
-			let sender = self.senders.write().unwrap().remove(local_id);
+			let sender = self.senders.write().unwrap()[local_id].take(); // take them and drop them
 			if close {
-				sender.upgrade().map(|s| s.close(ws::CloseCode::Normal));
+				sender
+					.unwrap()
+					.upgrade()
+					.map(|s| s.close(ws::CloseCode::Normal));
 			}
-			self.local_ids.write().unwrap().remove(local_id);
+			self.local_ids.write().unwrap()[local_id].take();
+			self.model
+				.write()
+				.unwrap()
+				.player_handle(local_id)
+				.disable(true);
 		}
 
 		if self.connected_count() <= 1 {
@@ -358,6 +373,7 @@ impl Instance {
 		let mut senders = self.senders.write().unwrap();
 		senders
 			.iter()
+			.filter_map(|w| w.as_ref())
 			.map(|w| w.upgrade().unwrap())
 			.for_each(|s| s.close(ws::CloseCode::Normal).unwrap());
 		senders.clear();
@@ -369,25 +385,42 @@ impl Instance {
 			.read()
 			.unwrap()
 			.iter()
-			.position(|&x| x == client_id)
+			.position(|&x| x.unwrap() == client_id)
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataOut {
-	QueueUpdate { size: usize, goal: usize },
-	Start { cards: Vec<Vec<u8>> },
-	Discard { ids: Vec<u8> },
-
-	GameEnd { victory: bool },
+	QueueUpdate {
+		size: usize,
+		goal: usize,
+	},
+	Start {
+		your_id: usize,
+		card_ids: Vec<Vec<u8>>,
+	},
+	Discard {
+		player_id: usize,
+		card_ids: Vec<u8>,
+	},
+	GameEnd {
+		victor_id: usize,
+	},
 	PlaySuccess {},
 	PassSuccess {},
 
-	YourTurn { first_turn: bool, must_play: bool },
-	EndTurn {},
+	TurnUpdate {
+		player_id: usize,
+		first_turn: bool,
+		must_play: bool,
+	},
 
-	Status { message: String },
-	Error { reason: String },
+	Status {
+		message: String,
+	},
+	Error {
+		reason: String,
+	},
 }
 
 #[derive(Serialize, Deserialize, Debug)]

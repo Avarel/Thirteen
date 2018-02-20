@@ -70,11 +70,16 @@ namespace Thirteen {
             log("Connecting to server...");
             connection = new WebSocket("ws://127.0.0.1:2794", "thirteen-game");
             connection.onmessage = event => process(event);
-            connection.onclose = disconnect;
+            connection.onclose = () => { 
+                disconnect();
+                $("#connect").text("Connect");
+                $("#connect").removeClass("disabled");
+            };
 
             connection.onopen = () => {
+                log("Connected to server.");
                 $("#connect").text("Disconnect");
-                $('#connect').removeClass("disabled");
+                $("#connect").removeClass("disabled");
             };
         }
 
@@ -87,12 +92,13 @@ namespace Thirteen {
             log("Disconnecting from server.");
             Game.status("Press Start Game to connect to the server!");
             Game.reset();
-            connection.onclose = undefined as any;
-            connection.close(1000, "im done");
+            connection.onclose = () => {
+                log("Disconnected from server.");
+                $("#connect").text("Connect");
+                $("#connect").removeClass("disabled");
+            };
+            connection.close(1000);
             connection = undefined;
-
-            $("#connect").text("Connect");
-            $('#connect').removeClass("disabled");
         }
 
         export function send(data: any) {
@@ -122,8 +128,7 @@ namespace Thirteen {
                     Game.status(`${payload.QueueUpdate.size}/${payload.QueueUpdate.goal} connected players!`);
                     break;
                 case "Start":
-                    Game.start((payload.Start.cards as number[][]).map(ids => utils.cardsFromID(...ids)));
-                    Game.status("The game has started! Wait for your turn!");
+                    Game.start(payload.Start.your_id, (payload.Start.card_ids as number[][]).map(ids => utils.cardsFromID(...ids)));
                     break;
                 case "Status":
                     Game.status(payload.Status.message);
@@ -132,24 +137,21 @@ namespace Thirteen {
                     Game.status(payload.Error.reason);
                     break;
                 case "Discard":
-                    Game.discard(utils.cardsFromID(...payload.Discard.ids));
+                    Game.discard(utils.cardsFromID(...payload.Discard.card_ids));
                     break;
-                case "YourTurn": {
-                    let event: any = payload.YourTurn;
-                    Game.startTurn(event.first_turn, event.must_play);
-                    Game.status("It is your turn!");
+                case "TurnUpdate": {
+                    let event: any = payload.TurnUpdate;
+                    Game.startTurn(event.player_id, event.first_turn, event.must_play);
                     break;
                 }
                 case "PlaySuccess":
-                    Game.endTurn();
                     Game.status("Great play!");
                     break;
                 case "PassSuccess":
-                    Game.endTurn();
                     Game.status("You passed for this turn!");
                     break;
                 case "GameEnd":
-                    if (payload.GameEnd.victory) {
+                    if (payload.GameEnd.victor_id == Thirteen.Game.myID) {
                         Game.status("You won!");
                     } else {
                         Game.status("You lost!");
@@ -179,6 +181,7 @@ namespace Thirteen {
         export let discardHand = new Hand({ faceUp: true });
         export let playerHands: Hand[];
 
+        export let myID: number | undefined;
         export let myQueue = new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }), angle: 0 });
         export let myHand: Hand;
 
@@ -186,6 +189,7 @@ namespace Thirteen {
             $('#play').hide();
             $('#pass').hide();
 
+            myID = undefined;
             nameTags.hide();
             playerHands = [];
 
@@ -196,9 +200,12 @@ namespace Thirteen {
             renderAll({ speed: 2000, callback: () => dealDeck.show() });
         }
 
-        export function start(cards: Card[][]) {
+        export function start(id: number, cards: Card[][]) {
+            myID = id;
+
             playerHands = displayOpts.slice(0, cards.length).map(opt => new Hand(opt));
-            for (let [i, d] of cards.entries()) {
+
+            for (let [i, d] of utils.rotate(cards, id).entries()) {
                 playerHands[i].addCards(...d);
                 playerHands[i].render({ speed: 2000 });
             }
@@ -229,6 +236,8 @@ namespace Thirteen {
                 myHand.render();
                 myQueue.render();
             });
+
+            Game.status("The game has started! Wait for your turn!");
         }
 
         export function discard(cards: Card[]) {
@@ -237,7 +246,14 @@ namespace Thirteen {
             renderAll();
         }
 
-        export function startTurn(firstTurn: boolean, mustPlay: boolean) {
+        export function startTurn(player_id: number, firstTurn: boolean, mustPlay: boolean) {
+            if (player_id != myID) {
+                Game.endTurn();
+                return;
+            }
+
+            Game.status("It is your turn!");
+
             $('#play').show();
 
             if (!mustPlay) {

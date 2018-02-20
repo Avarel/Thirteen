@@ -129,6 +129,11 @@ impl Game {
     }
 
     #[inline]
+    pub fn current_player(&self) -> &Player {
+        &self.players[self.current_turn()]
+    }
+
+    #[inline]
     pub fn is_new_pattern(&self) -> bool {
         self.new_pattern
     }
@@ -139,7 +144,7 @@ impl Game {
             unimplemented!()
         }
 
-        self.players.push(Player { cards: Vec::new() });
+        self.players.push(Player { cards: Vec::new(), disabled: false });
 
         self.players.len() - 1
     }
@@ -176,6 +181,10 @@ impl Game {
     fn next_turn(&mut self) {
         self.current_turn += 1;
         self.current_turn %= self.players.len();
+
+        if self.current_player().disabled {
+            self.next_turn();
+        }
     }
 }
 
@@ -220,6 +229,7 @@ impl Turn {
 
 pub struct Player {
     cards: Vec<Card>,
+    disabled: bool
 }
 
 pub struct PlayerHandle<'game> {
@@ -229,6 +239,10 @@ pub struct PlayerHandle<'game> {
 
 // abstraction to make player handling easier
 impl<'game> PlayerHandle<'game> {
+    pub fn disable(&mut self, disabled: bool) {
+        self.game.players[self.local_id].disabled = disabled
+    }
+
     #[inline]
     pub fn cards(&self) -> &[Card] {
         &self.game.players[self.local_id].cards

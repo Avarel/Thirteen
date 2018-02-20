@@ -37,5 +37,15 @@ namespace utils {
     export function cardsFromID(...id: number[]): cards.Card[] {
         return id.map(cards.Card.fromID);
     }
+
+    export function rotate<T>(source: T[], shift: number): T[] {
+        let array = [];
+
+        for (let i =0; i < source.length; i++) {
+            array.push(source[(i + shift) % source.length]);
+        }
+
+        return array
+    }
 }
 
