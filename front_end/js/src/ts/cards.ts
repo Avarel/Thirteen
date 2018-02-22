@@ -309,21 +309,23 @@ namespace cards {
             for (let i = 0; i < cards.length; i++) {
                 let card = cards[i];
                 if (card.container) {
-                    card.container.removeCard(card);
+                    card.container.removeCards(card);
                 }
                 this.array.push(card);
                 card.container = this;
             }
         }
 
-        removeCard(card: Card): boolean {
-            for (let i = 0; i < this.array.length; i++) {
-                if (this.array[i] == card) {
-                    this.array.splice(i, 1)
-                    return true;
+        removeCards(...cards: Card[]): Card[] {
+            let removed = [];
+            for (let j = 0; j < cards.length; j++) {
+                for (let i = 0; i < this.array.length; i++) {
+                    if (this.array[i] == cards[j]) {
+                        removed.push(this.array.splice(i, 1)[0]);
+                    }
                 }
             }
-            return false;
+            return removed;
         }
 
         topCard(): Card {

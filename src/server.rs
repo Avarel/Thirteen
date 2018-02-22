@@ -167,7 +167,7 @@ impl Instance {
 						self.send_out(local_id, &DataOut::PassSuccess {});
 
 						if game.is_new_pattern() {
-							self.broadcast(&DataOut::Discard {
+							self.broadcast(&DataOut::Play {
 								player_id: local_id,
 								card_ids: Vec::new(),
 							});
@@ -224,7 +224,7 @@ impl Instance {
 				match game.player_handle(local_id).try_play(&cards) {
 					Ok(win) => {
 						self.send_out(local_id, &DataOut::PlaySuccess {});
-						self.broadcast(&DataOut::Discard {
+						self.broadcast(&DataOut::Play {
 							player_id: local_id,
 							card_ids: cards.iter().map(Card::into_id).collect(),
 						});
@@ -389,7 +389,7 @@ pub enum DataOut {
 		player_count: usize,
 		cards_per_player: usize,
 	},
-	Discard {
+	Play {
 		player_id: usize,
 		card_ids: Vec<u8>,
 	},
