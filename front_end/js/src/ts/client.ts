@@ -101,7 +101,7 @@ namespace Thirteen {
     }
     
 
-    export namespace Display {
+    namespace Display {
         import Card = cards.Card;
         import Deck = cards.Deck;
         import Hand = cards.Hand;
@@ -177,8 +177,8 @@ namespace Thirteen {
             }
         }
 
-        export const drepo = new DeckRepository(52);
-        export const discardPile = new Hand({ faceUp: true });
+        const drepo = new DeckRepository(52);
+        const discardPile = new Hand({ faceUp: true });
 
         const playerSlots: PlayerSlot[] = [];
         for (let i = 0; i < 4; i++) {
