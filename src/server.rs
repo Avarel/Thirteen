@@ -133,25 +133,19 @@ impl Instance {
 
 		let player_count = game.players().len();
 
-		let mut cards: Vec<Vec<u8>> = Vec::with_capacity(player_count);
-
-		for i in 0..player_count {
-			use cards::Card;
-			cards.push(
-				game.player_handle(i)
-					.cards()
-					.iter()
-					.map(Card::into_id)
-					.collect(),
-			);
-		}
-
 		for local_id in 0..player_count {
+			use cards::Card;
 			self.send_out(
 				local_id,
 				&DataOut::Start {
 					your_id: local_id,
-					card_ids: cards.clone(),
+					your_cards: game.player_handle(local_id)
+						.cards()
+						.iter()
+						.map(Card::into_id)
+						.collect(),
+					player_count,
+					cards_per_player: 13,
 				},
 			);
 
@@ -177,21 +171,17 @@ impl Instance {
 								player_id: local_id,
 								card_ids: Vec::new(),
 							});
-							self.broadcast(
-								&DataOut::TurnUpdate {
-									player_id: game.current_turn(),
-									first_turn: false,
-									must_play: true,
-								},
-							);
+							self.broadcast(&DataOut::TurnUpdate {
+								player_id: game.current_turn(),
+								first_turn: false,
+								must_play: true,
+							});
 						} else {
-							self.broadcast(
-								&DataOut::TurnUpdate {
-									player_id: game.current_turn(),
-									first_turn: false,
-									must_play: false,
-								},
-							);
+							self.broadcast(&DataOut::TurnUpdate {
+								player_id: game.current_turn(),
+								first_turn: false,
+								must_play: false,
+							});
 						}
 					}
 					Err(error) => {
@@ -243,13 +233,11 @@ impl Instance {
 								victor_id: local_id,
 							});
 						} else {
-							self.broadcast(
-								&DataOut::TurnUpdate {
-									player_id: game.current_turn(),
-									first_turn: false,
-									must_play: false,
-								},
-							);
+							self.broadcast(&DataOut::TurnUpdate {
+								player_id: game.current_turn(),
+								first_turn: false,
+								must_play: false,
+							});
 						}
 					}
 					Err(error) => {
@@ -397,7 +385,9 @@ pub enum DataOut {
 	},
 	Start {
 		your_id: usize,
-		card_ids: Vec<Vec<u8>>,
+		your_cards: Vec<u8>,
+		player_count: usize,
+		cards_per_player: usize,
 	},
 	Discard {
 		player_id: usize,

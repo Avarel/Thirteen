@@ -1,5 +1,5 @@
 namespace cards {
-    let opt = {
+    const opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 150,
         table: 'body',
@@ -9,9 +9,10 @@ namespace cards {
 
     export let zIndexCounter = 1;
 
-    export let all: Card[] = []; //All the cards created.
+    export const all: Card[] = []; //All the cards created.
 
-    function mouseEvent(this: any, ev: any): void {
+    export function mouseEvent(this: any, ev: any): void {
+        console.log("hello");
         let card: Card = $(this).data('card');
         if (card.container) {
             let handler = card.container.clickHandler;
@@ -34,12 +35,14 @@ namespace cards {
         if ($(opt.table).css('position') == 'static') {
             $(opt.table).css('position', 'relative');
         }
+    }
 
+    export function newDeck(): Card[] {
+        let all = [];
         for (let i = 0; i < 52; i++) {
             all.push(new Card(i));
         }
-
-        $('.card').click(mouseEvent);
+        return all;
     }
 
     export function shuffle(deck: Container): void {
@@ -66,40 +69,40 @@ namespace cards {
         container?: Container;
         targetPosition?: { top: number, left: number };
         hidden: boolean = false;
-        element: any;
+        element: JQuery<HTMLElement>;
 
-        constructor(readonly id: number) {
-            this.element = $('<div/>').css({
-                "width": opt.cardSize.width,
-                "height": opt.cardSize.height,
-                "background-image": `url(${opt.cardUrl})`,
-                "position": 'absolute',
-                "cursor": 'pointer'
-            }).addClass('card').data('card', this).appendTo($(opt.table));
+        constructor(public id: number) {
+            this.element = $('<div/>')
+                .addClass('card')
+                .data('card', this)
+                .appendTo($(opt.table))
+                .click(mouseEvent).css({
+                    'width': opt.cardSize.width,
+                    'height': opt.cardSize.height,
+                    'background-image': `url(${opt.cardUrl})`,
+                    'position': 'absolute',
+                    'cursor': 'pointer',
+                });
             this.face(false);
-            this.moveToFront();
-        }
-
-        static fromID(id: number): Card {
-            if (id < 0 || id >= 52) {
-                throw new Error("Illegal id");
-            }
-            return all[id];
         }
 
         static from(suit: Suit, rank: number): Card {
+            return new Card(this.calculateID(suit, rank));
+        }
+
+        static calculateID(suit: Suit, rank: number): number {
             if (0 > rank || rank >= 13) {
-                throw new Error("Illegal rank");
+                throw new Error('Illegal rank');
             }
             switch (suit) {
                 case Suit.Spades:
-                    return Card.fromID(rank);
+                    return rank;
                 case Suit.Clubs:
-                    return Card.fromID(rank + 13);
+                    return rank + 13;
                 case Suit.Diamonds:
-                    return Card.fromID(rank + 26);
+                    return rank + 26;
                 case Suit.Hearts:
-                    return Card.fromID(rank + 39);
+                    return rank + 39;
             }
         }
 
@@ -113,7 +116,7 @@ namespace cards {
             } else if (39 <= this.id && this.id < 52) {
                 return this.id - 39;
             }
-            throw new Error("Illegal id");
+            throw new Error('Illegal id');
         }
 
         get vcRank(): number {
@@ -137,7 +140,7 @@ namespace cards {
             } else if (39 <= this.id && this.id < 52) {
                 return Suit.Hearts;
             }
-            throw new Error("Illegal id");
+            throw new Error('Illegal id');
         }
 
         toString(): string {
@@ -149,11 +152,11 @@ namespace cards {
             $(this.element).animate(props, speed || opt.animationSpeed, callback);
         }
 
-        rotate(angle: number) {
+        rotate(angle: number): void {
             $(this.element).css('transform', `rotate(${angle}deg)`);
         }
 
-        face(up: boolean) {
+        face(up: boolean): void {
             if (up) {
                 let rank = this.rank;
 
@@ -191,14 +194,14 @@ namespace cards {
             $(this.element).hide();
         }
 
-        moveToFront(): void {
-            $(this.element).css('z-index', zIndexCounter++);
-        }
+        // moveToFront(): void {
+        //     $(this.element).css('z-index', zIndexCounter++);
+        // }
 
         static adjustZIndices(): void {
             let cards = all.slice();
             cards.sort((a, b) => {
-                return $(a.element).css('z-index') - $(b.element).css('z-index')
+                return parseInt($(a.element).css('z-index')) - parseInt($(b.element).css('z-index'))
             });
             for (let i = 0; i < cards.length; i++) {
                 $(cards[i].element).css('z-index', i);
@@ -215,9 +218,9 @@ namespace cards {
 
         constructor({ left, right, top, bottom }: { left?: number, right?: number, top?: number, bottom?: number } = {}) {
             if (left !== undefined && right !== undefined) {
-                throw new Error("Can not have left and right prop at the same time.");
+                throw new Error('Can not have left and right prop at the same time.');
             } else if (top !== undefined && right !== undefined) {
-                throw new Error("Can not have top and bottom prop at the same time.");
+                throw new Error('Can not have top and bottom prop at the same time.');
             }
 
             this.left = left;
@@ -275,7 +278,7 @@ namespace cards {
         faceUp: boolean;
         hidden: boolean;
 
-        clickHandler?: { func: (card: Card) => void, context?: any};
+        clickHandler?: { func: (card: Card) => void, context?: any };
 
         constructor({ position, angle, faceUp, hidden }: ContainerOptions = {}) {
             this.array = [];
@@ -296,6 +299,10 @@ namespace cards {
                 let compare = a.vcRank - b.vcRank;
                 return compare === 0 ? a.suit - b.suit : compare;
             });
+        }
+
+        draw(n: number): Card[] {
+            return this.array.splice(0, n);
         }
 
         addCards(...cards: Card[]): void {
@@ -319,6 +326,13 @@ namespace cards {
             return false;
         }
 
+        topCard(): Card {
+            return this.array[this.array.length - 1];
+        }
+
+        face(up: boolean): void {
+            this.faceUp = up;
+        }
 
         click(func: (card: Card) => void, context?: any): void {
             this.clickHandler = { func, context };
@@ -329,13 +343,11 @@ namespace cards {
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
 
-            if (zIndexCounter > 500) {
-                Card.adjustZIndices();
-            }
+            let zIndexCounter = 1;
 
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
-                card.moveToFront();
+                $(card.element).css('z-index', zIndexCounter++);
 
                 let props = {
                     top: card.targetPosition!.top,
@@ -358,9 +370,9 @@ namespace cards {
                     this.hide();
                 } else {
                     this.show();
-                }            
+                }
             };
-            
+
             if (immediate) {
                 update();
             } else {
@@ -370,10 +382,6 @@ namespace cards {
             if (callback) {
                 setTimeout(callback, speed);
             }
-        }
-
-        topCard(): Card {
-            return this.array[this.array.length - 1];
         }
 
         show(): void {
