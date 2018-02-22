@@ -4,4 +4,4 @@ Cargo.lock
 .DS_Store
 /front_end/.sass-cache/
 /front_end/js/target/
-*.d.ts
+/front_end/js/src/ts/external

@@ -85,7 +85,7 @@ pub struct Game {
 
     new_pattern: bool,     // is it a new round? can you start a new pattern?
     pass_count: usize,   // how many people passed
-    current_turn: usize, // whose turn is it currently
+    current_turn: usize, // whose turn is it currently by id
     mandatory_card: Option<Card>,
 
     players: Vec<Player>, // cards of the players of the game
@@ -105,16 +105,17 @@ impl Game {
         }
     }
 
+    #[inline]
+    fn id_to_index(&self, id: usize) -> Option<usize> {
+        self.players.iter().position(|p| p.id == id)
+    }
+
     // get an abstraction
     #[inline]
-    pub fn player_handle(&mut self, local_id: usize) -> PlayerHandle {
-        if local_id >= self.players.len() {
-            unimplemented!()
-        }
-
+    pub fn player_handle(&mut self, id: usize) -> PlayerHandle {
         PlayerHandle {
+            index: self.id_to_index(id).unwrap(),
             game: self,
-            local_id,
         }
     }
 
@@ -124,13 +125,8 @@ impl Game {
     }
 
     #[inline]
-    pub fn current_turn(&self) -> usize {
-        self.current_turn
-    }
-
-    #[inline]
     pub fn current_player(&self) -> &Player {
-        &self.players[self.current_turn()]
+        &self.players[self.current_turn]
     }
 
     #[inline]
@@ -139,14 +135,17 @@ impl Game {
     }
 
     // add a new player and return their local id
-    pub fn add_player(&mut self) -> usize {
+    pub fn add_player(&mut self, id: usize) {
         if self.started || self.players.len() >= 4 {
             unimplemented!()
         }
 
-        self.players.push(Player { cards: Vec::new(), disabled: false });
+        self.players.push(Player { id, cards: Vec::new() });
+    }
 
-        self.players.len() - 1
+    pub fn remove_player(&mut self, id: usize) {
+        let index = self.id_to_index(id).unwrap();
+        self.players.remove(index);
     }
 
     pub fn start(&mut self) {
@@ -181,10 +180,6 @@ impl Game {
     fn next_turn(&mut self) {
         self.current_turn += 1;
         self.current_turn %= self.players.len();
-
-        if self.current_player().disabled {
-            self.next_turn();
-        }
     }
 }
 
@@ -228,29 +223,25 @@ impl Turn {
 }
 
 pub struct Player {
+    pub id: usize,
     cards: Vec<Card>,
-    disabled: bool
 }
 
 pub struct PlayerHandle<'game> {
-    game: &'game mut Game,
-    local_id: usize,
+    index: usize,
+    game: &'game mut Game
 }
 
 // abstraction to make player handling easier
 impl<'game> PlayerHandle<'game> {
-    pub fn disable(&mut self, disabled: bool) {
-        self.game.players[self.local_id].disabled = disabled
-    }
-
     #[inline]
     pub fn cards(&self) -> &[Card] {
-        &self.game.players[self.local_id].cards
+        &self.game.players[self.index].cards
     }
 
     #[inline]
     pub fn cards_mut(&mut self) -> &mut Vec<Card> {
-        &mut self.game.players[self.local_id].cards
+        &mut self.game.players[self.index].cards
     }
 
     pub fn add_cards(&mut self, cards: &[Card]) {
@@ -280,7 +271,7 @@ impl<'game> PlayerHandle<'game> {
             unimplemented!()
         }
 
-        if self.game.current_turn != self.local_id {
+        if self.game.current_turn != self.index {
             return Err(PlayError::OutOfTurn);
         } else if cards.len() == 0 {
             return Err(PlayError::NoCards);
@@ -321,7 +312,7 @@ impl<'game> PlayerHandle<'game> {
             unimplemented!()
         }
 
-        if self.game.current_turn != self.local_id {
+        if self.game.current_turn != self.index {
             return Err(PassError::OutOfTurn);
         }
 

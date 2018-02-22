@@ -10,24 +10,7 @@ use std::sync::{Arc, RwLock, Weak};
 use std::collections::{HashMap, VecDeque};
 
 pub fn start_server() {
-	println!("Starting server...");
-
-	fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Instance> {
-		if let Some(instance) = server
-			.mm_instances
-			.read()
-			.unwrap()
-			.iter()
-			.find(|i| i.game_size == game_size)
-		{
-			return Arc::downgrade(instance);
-		}
-
-		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
-		let weak = Arc::downgrade(&instance);
-		server.add_instance(instance);
-		weak
-	}
+	println!("Starting server.");
 
 	let server = Arc::new(Server::new());
 
@@ -43,6 +26,23 @@ pub fn start_server() {
 		client
 	}).unwrap();
 }
+
+fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Instance> {
+		if let Some(instance) = server
+			.mm_instances
+			.read()
+			.unwrap()
+			.iter()
+			.find(|i| i.game_size == game_size)
+		{
+			return Arc::downgrade(instance);
+		}
+
+		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
+		let weak = Arc::downgrade(&instance);
+		server.add_instance(instance);
+		weak
+	}
 
 pub struct Server {
 	counter: AtomicUsize,
@@ -96,8 +96,7 @@ pub struct Instance {
 	game_size: usize,
 	running: AtomicBool,
 	server: Weak<Server>,
-	client_indices: RwLock<Vec<Option<usize>>>,
-	senders: RwLock<Vec<Option<Weak<ws::Sender>>>>,
+	senders: RwLock<HashMap<usize, Weak<ws::Sender>>>,
 	model: RwLock<game::Game>,
 }
 
@@ -110,8 +109,7 @@ impl Instance {
 			game_size,
 			running: false.into(),
 			server: server,
-			client_indices: Vec::with_capacity(game_size).into(),
-			senders: Vec::with_capacity(game_size).into(),
+			senders: HashMap::with_capacity(game_size).into(),
 			model: game::Game::new().into(),
 		}.into();
 		strong.counter.store(id + 1, Ordering::Relaxed);
@@ -131,15 +129,14 @@ impl Instance {
 		let mut game = self.model.write().unwrap();
 		game.start();
 
-		let player_count = game.players().len();
-		let player_ids: Vec<usize> = self.client_indices.read().unwrap().iter().cloned().filter_map(|i| i).collect();
+		let player_ids: Vec<usize> = self.senders.read().unwrap().keys().cloned().collect();
 
-		for local_id in 0..player_count {
+		for &id in &player_ids {
 			use cards::Card;
 			self.send_out(
-				local_id,
-				&DataOut::Start {
-					your_cards: game.player_handle(local_id)
+				id,
+				&DataOut::READY {
+					your_cards: game.player_handle(id)
 						.cards()
 						.iter()
 						.map(Card::into_id)
@@ -150,37 +147,35 @@ impl Instance {
 			);
 		}
 
-		self.broadcast(&DataOut::TurnUpdate {
-			player_id: self.index_to_client_id(game.current_turn()).unwrap(),
+		self.broadcast(&DataOut::TURN_UPDATE {
+			player_id: game.current_player().id,
 			first_turn: true,
 			must_play: true,
 		});
 	}
 
 	pub fn process(&self, client_id: usize, data: DataIn) {
-		let local_index = self.client_id_to_index(client_id).unwrap();
-		
 		match data {
-			DataIn::Pass {} => {
+			DataIn::PASS {} => {
 				use game::PassError;
 				let mut game = self.model.write().unwrap();
-				match game.player_handle(local_index).try_pass() {
+				match game.player_handle(client_id).try_pass() {
 					Ok(()) => {
-						self.send_out(local_index, &DataOut::PassSuccess {});
+						self.send_out(client_id, &DataOut::PASS_SUCCESS {});
 
 						if game.is_new_pattern() {
-							self.broadcast(&DataOut::Play {
+							self.broadcast(&DataOut::PLAY {
 								player_id: client_id,
 								card_ids: Vec::new(),
 							});
-							self.broadcast(&DataOut::TurnUpdate {
-								player_id: self.index_to_client_id(game.current_turn()).unwrap(),
+							self.broadcast(&DataOut::TURN_UPDATE {
+								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: true,
 							});
 						} else {
-							self.broadcast(&DataOut::TurnUpdate {
-								player_id: self.index_to_client_id(game.current_turn()).unwrap(),
+							self.broadcast(&DataOut::TURN_UPDATE {
+								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: false,
 							});
@@ -188,8 +183,8 @@ impl Instance {
 					}
 					Err(error) => {
 						self.send_out(
-							local_index,
-							&DataOut::Error {
+							client_id,
+							&DataOut::ERROR {
 								reason: match error {
 									PassError::OutOfTurn => String::from("It is not your turn."),
 									PassError::MustPlay => {
@@ -204,39 +199,39 @@ impl Instance {
 					}
 				}
 			}
-			DataIn::Play { ids } => {
+			DataIn::PLAY { card_ids } => {
 				use cards::Card;
 				use game::PlayError;
 				let mut game = self.model.write().unwrap();
 
-				let mut cards = Vec::with_capacity(ids.len());
-				for id in &ids {
+				let mut cards = Vec::with_capacity(card_ids.len());
+				for id in &card_ids {
 					if let Some(card) = Card::from_id(*id) {
 						cards.push(card);
 					} else {
 						self.send_out(
-							local_index,
-							&DataOut::Error {
+							client_id,
+							&DataOut::ERROR {
 								reason: String::from("Invalid card IDs."),
 							},
 						);
 					}
 				}
 
-				match game.player_handle(local_index).try_play(&cards) {
+				match game.player_handle(client_id).try_play(&cards) {
 					Ok(win) => {
-						self.send_out(local_index, &DataOut::PlaySuccess {});
-						self.broadcast(&DataOut::Play {
+						self.send_out(client_id, &DataOut::PLAY_SUCCESS {});
+						self.broadcast(&DataOut::PLAY {
 							player_id: client_id,
 							card_ids: cards.iter().map(Card::into_id).collect(),
 						});
 						if win {
-							self.broadcast(&DataOut::GameEnd {
+							self.broadcast(&DataOut::END {
 								victor_id: client_id,
 							});
 						} else {
-							self.broadcast(&DataOut::TurnUpdate {
-								player_id: self.index_to_client_id(game.current_turn()).unwrap(),
+							self.broadcast(&DataOut::TURN_UPDATE {
+								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: false,
 							});
@@ -244,8 +239,8 @@ impl Instance {
 					}
 					Err(error) => {
 						self.send_out(
-							local_index,
-							&DataOut::Error {
+							client_id,
+							&DataOut::ERROR {
 								reason: match error {
 									PlayError::OutOfTurn => {
 										String::from("It is not your turn! Wait a bit!")
@@ -267,17 +262,16 @@ impl Instance {
 				}
 			}
 		}
-		// unimplemented!()
 	}
 
 	pub fn send_out(&self, client_index: usize, data: &DataOut) {
-		let sender = &self.senders.read().unwrap()[client_index]
-			.as_ref()
-			.unwrap()
+		let sender = &self.senders.read().unwrap()[&client_index]
 			.upgrade()
 			.expect("Reference dropped");
 
-		sender.send(serde_json::to_string(data).expect("Can not serialize")).expect("Error while sending");
+		sender
+			.send(serde_json::to_string(data).expect("Can not serialize"))
+			.expect("Error while sending");
 	}
 
 	pub fn broadcast(&self, data: &DataOut) {
@@ -286,15 +280,14 @@ impl Instance {
 		self.senders
 			.read()
 			.unwrap()
-			.iter()
-			.filter_map(|o| o.as_ref())
+			.values()
 			.map(|w| w.upgrade().unwrap())
 			.for_each(|sender| sender.send(data).expect("Error while sending"));
 	}
 
 	#[inline]
 	pub fn broadcast_queue_update(&self) {
-		let data = DataOut::QueueUpdate {
+		let data = DataOut::QUEUE_UPDATE {
 			size: self.senders.read().unwrap().len(),
 			goal: self.game_size,
 		};
@@ -303,12 +296,7 @@ impl Instance {
 
 	#[inline]
 	pub fn connected_count(&self) -> usize {
-		self.senders
-			.read()
-			.unwrap()
-			.iter()
-			.filter_map(|o| o.as_ref())
-			.count()
+		self.senders.read().unwrap().len()
 	}
 
 	pub fn add_client(&self, client_id: usize, sender: Weak<ws::Sender>) -> Result<(), ws::Error> {
@@ -319,9 +307,8 @@ impl Instance {
 			));
 		}
 
-		self.senders.write().unwrap().push(Some(sender));
-		self.client_indices.write().unwrap().push(Some(client_id));
-		self.model.write().unwrap().add_player();
+		self.senders.write().unwrap().insert(client_id, sender);
+		self.model.write().unwrap().add_player(client_id);
 
 		self.broadcast_queue_update();
 
@@ -333,29 +320,24 @@ impl Instance {
 	}
 
 	pub fn remove_client(&self, client_id: usize, close: bool) {
-		if let Some(local_id) = self.client_id_to_index(client_id) {
-			let sender = self.senders.write().unwrap()[local_id].take(); // take them and drop them
+		let removed = self.senders.write().unwrap().remove(&client_id); // take them and drop them
+		if let Some(sender) = removed {
 			if close {
-				sender
-					.unwrap()
-					.upgrade()
-					.map(|s| s.close(ws::CloseCode::Normal));
+				sender.upgrade().map(|s| s.close(ws::CloseCode::Normal));
 			}
-			self.client_indices.write().unwrap()[local_id].take();
-			self.model
-				.write()
-				.unwrap()
-				.player_handle(local_id)
-				.disable(true);
+			self.model.write().unwrap().remove_player(client_id);
 		}
 
-		if self.connected_count() <= 1 {
+		if self.connected_count() == 0 {
 			self.close();
 			if self.running() {
 				self.server.upgrade().unwrap().remove_rn_instance(self.id);
 			} else {
 				self.server.upgrade().unwrap().remove_mm_instance(self.id);
 			}
+		} else if self.connected_count() == 1 && self.running() {
+			self.close();
+			self.server.upgrade().unwrap().remove_rn_instance(self.id);
 		} else {
 			self.broadcast_queue_update();
 		}
@@ -364,69 +346,62 @@ impl Instance {
 	pub fn close(&self) {
 		let mut senders = self.senders.write().unwrap();
 		senders
-			.iter()
-			.filter_map(|w| w.as_ref())
+			.values()
 			.map(|w| w.upgrade().unwrap())
 			.for_each(|s| s.close(ws::CloseCode::Normal).unwrap());
 		senders.clear();
-		self.client_indices.write().unwrap().clear();
-	}
 
-	pub fn client_id_to_index(&self, client_id: usize) -> Option<usize> {
-		self.client_indices
-			.read()
-			.unwrap()
-			.iter()
-			.position(|&x| x.unwrap() == client_id)
-	}
-
-	pub fn index_to_client_id(&self, local_index: usize) -> Option<usize> {
-		self.client_indices.read().unwrap()[local_index]
 	}
 }
 
+// #[warn(non_camel_case_types)]
+
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
 pub enum DataOut {
-	QueueUpdate {
+	QUEUE_UPDATE {
 		size: usize,
 		goal: usize,
 	},
-	Identification {
+	IDENTIFY {
 		id: usize,
 	},
-	Start {
+	READY {
 		your_cards: Vec<u8>,
 		player_ids: Vec<usize>,
 		cards_per_player: usize,
 	},
-	Play {
+	PLAY {
 		player_id: usize,
 		card_ids: Vec<u8>,
 	},
-	GameEnd {
+	END {
 		victor_id: usize,
 	},
-	PlaySuccess {},
-	PassSuccess {},
 
-	TurnUpdate {
+	// TODO check this 
+	PLAY_SUCCESS {},
+	PASS_SUCCESS {},
+
+	TURN_UPDATE {
 		player_id: usize,
 		first_turn: bool,
 		must_play: bool,
 	},
 
-	Status {
+	STATUS {
 		message: String,
 	},
-	Error {
+	ERROR {
 		reason: String,
 	},
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum DataIn {
-	Pass {},
-	Play { ids: Vec<u8> },
+	PASS {},
+	PLAY { card_ids: Vec<u8> },
 }
 
 struct ClientConnection {
@@ -476,7 +451,9 @@ impl ws::Handler for ClientConnection {
 	}
 
 	fn on_open(&mut self, _: ws::Handshake) -> ws::Result<()> {
-		self.out.send(serde_json::to_string(&DataOut::Identification { id: self.client_id }).unwrap()).unwrap();
+		self.out
+			.send(serde_json::to_string(&DataOut::IDENTIFY { id: self.client_id }).unwrap())
+			.unwrap();
 
 		self.instance
 			.upgrade()

@@ -9,8 +9,6 @@ namespace cards {
 
     export let zIndexCounter = 1;
 
-    export const all: Card[] = []; //All the cards created.
-
     export function mouseEvent(this: any, ev: any): void {
         let card: Card = $(this).data('card');
         if (card.container) {
@@ -191,21 +189,6 @@ namespace cards {
         hide(): void {
             this.hidden = true;
             $(this.element).hide();
-        }
-
-        // moveToFront(): void {
-        //     $(this.element).css('z-index', zIndexCounter++);
-        // }
-
-        static adjustZIndices(): void {
-            let cards = all.slice();
-            cards.sort((a, b) => {
-                return parseInt($(a.element).css('z-index')) - parseInt($(b.element).css('z-index'))
-            });
-            for (let i = 0; i < cards.length; i++) {
-                $(cards[i].element).css('z-index', i);
-            }
-            zIndexCounter = cards.length;
         }
     }
 

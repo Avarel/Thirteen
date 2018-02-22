@@ -1,6 +1,5 @@
 cards.init({ table: '.game' });
 
-
 namespace Thirteen {
     export let connection: Client | undefined = undefined;
 
@@ -41,43 +40,36 @@ namespace Thirteen {
         }
 
         onReceive(event: MessageEvent): void {
-            let payload = JSON.parse(event.data);
-            console.log(payload);
+            let payload = JSON.parse(event.data) as Client.Payload;
 
-            switch (Object.keys(payload)[0]) {
-                case "QueueUpdate":
-                    Display.updateStatus(`${payload.QueueUpdate.size}/${payload.QueueUpdate.goal} connected players!`);
+            switch (payload.type) {
+                case "QUEUE_UPDATE":
+                    Display.updateStatus(`${payload.size}/${payload.goal} connected players!`);
                     break;
-                case "Identification":
-                    this.id = payload.Identification.id;
+                case "IDENTIFY":
+                    this.id = payload.id;
                     break;
-                case "Start": {
-                    let event = payload.Start;
-                    Display.start(event.your_cards, event.player_ids, event.cards_per_player);
+                case "READY": 
+                    Display.start(payload.your_cards, payload.player_ids, payload.cards_per_player);
                     break;
-                }
-                case "Status":
-                    Display.updateStatus(payload.Status.message);
+                case "STATUS":
+                    Display.updateStatus(payload.message);
                     break;
-                case "Error":
-                    Display.updateStatus(payload.Error.reason);
+                case "ERROR":
+                    Display.updateStatus(payload.reason);
                     break;
-                case "Play": {
-                    let event = payload.Play;
-                    Display.play(event.player_id, event.card_ids);
+                case "PLAY": 
+                    Display.play(payload.player_id, payload.card_ids);
                     break;
-                }
-                case "TurnUpdate": {
-                    let event: any = payload.TurnUpdate;
-
+                case "TURN_UPDATE": {
                     Display.playerSlots.forEach(c => c.tag.hide());
-                    Display.playerSlots[Display.asDisplayID(event.player_id)].tag.show();
+                    Display.playerSlots[Display.asDisplayID(payload.player_id)].tag.show();
 
-                    if (event.player_id == this.id) {
+                    if (payload.player_id == this.id) {
                         Display.playButton(true);
-                        Display.passButton(!event.must_play);
+                        Display.passButton(!payload.must_play);
 
-                        if (event.first_turn) {
+                        if (payload.first_turn) {
                             Display.updateStatus("You got the first turn!");
                         } else {
                             Display.updateStatus("It is your turn!");
@@ -89,14 +81,14 @@ namespace Thirteen {
 
                     break;
                 }
-                case "PlaySuccess":
+                case "PLAY_SUCCESS":
                     Display.updateStatus("You successfully played this turn!");
                     break;
-                case "PassSuccess":
+                case "PASS_SUCCESS":
                     Display.updateStatus("You passed for this turn!");
                     break;
-                case "GameEnd":
-                    if (payload.GameEnd.victor_id == this.id) {
+                case "END":
+                    if (payload.victor_id == this.id) {
                         Display.updateStatus("You won!");
                     } else {
                         Display.updateStatus("You lost!");
@@ -205,6 +197,7 @@ namespace Thirteen {
 
             drepo.reset();
             drepo.deck.show();
+            playerSlots.forEach(p => p.reset);
 
             renderAll({ speed: 2000, callback: () => drepo.deck.show() });
 
