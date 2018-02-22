@@ -12,7 +12,6 @@ namespace cards {
     export const all: Card[] = []; //All the cards created.
 
     export function mouseEvent(this: any, ev: any): void {
-        console.log("hello");
         let card: Card = $(this).data('card');
         if (card.container) {
             let handler = card.container.clickHandler;

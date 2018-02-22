@@ -1,5 +1,6 @@
 cards.init({ table: '.game' });
 
+
 namespace Thirteen {
     export let connection: Client | undefined = undefined;
 
@@ -11,9 +12,9 @@ namespace Thirteen {
             console.log("Connecting to server...");
 
             this.ws = new WebSocket(address, "thirteen-game");
-            this.ws.onopen = () => this.onConnect();
+            this.ws.onopen = event => this.onConnect(event);
             this.ws.onclose = () => this.onDisconnect();
-            this.ws.onmessage = data => this.onReceive(data);
+            this.ws.onmessage = event => this.onReceive(event);
         }
 
         send(data: any): void {
@@ -25,7 +26,7 @@ namespace Thirteen {
             connection = undefined;
         }
 
-        onConnect(): void {
+        onConnect(event: Event): void {
             console.log("Connected to server.");
             $("#connect").text("Disconnect");
             $("#connect").removeClass("disabled");
@@ -41,15 +42,18 @@ namespace Thirteen {
 
         onReceive(event: MessageEvent): void {
             let payload = JSON.parse(event.data);
+            console.log(payload);
 
             switch (Object.keys(payload)[0]) {
                 case "QueueUpdate":
                     Display.updateStatus(`${payload.QueueUpdate.size}/${payload.QueueUpdate.goal} connected players!`);
                     break;
+                case "Identification":
+                    this.id = payload.Identification.id;
+                    break;
                 case "Start": {
                     let event = payload.Start;
-                    this.id = event.your_id;
-                    Display.start(event.your_cards, event.player_count, event.cards_per_player);
+                    Display.start(event.your_cards, event.player_ids, event.cards_per_player);
                     break;
                 }
                 case "Status":
@@ -66,6 +70,9 @@ namespace Thirteen {
                 case "TurnUpdate": {
                     let event: any = payload.TurnUpdate;
 
+                    Display.playerSlots.forEach(c => c.tag.hide());
+                    Display.playerSlots[Display.asDisplayID(event.player_id)].tag.show();
+
                     if (event.player_id == this.id) {
                         Display.playButton(true);
                         Display.passButton(!event.must_play);
@@ -74,7 +81,7 @@ namespace Thirteen {
                             Display.updateStatus("You got the first turn!");
                         } else {
                             Display.updateStatus("It is your turn!");
-                        }
+                        }                        
                     } else {
                         Display.playButton(false);
                         Display.passButton(false);
@@ -107,7 +114,9 @@ namespace Thirteen {
         import Hand = cards.Hand;
         import Anchor = cards.Anchor;
 
-        function coerceCards(ids: number[], cards: Card[]): Card[] {
+        export let playerIDs: number[] = [];
+
+        function transmuteCards(ids: number[], cards: Card[]): Card[] {
             if (ids.length != cards.length) {
                 throw new Error("cards and ids are not the same length");
             }
@@ -180,7 +189,7 @@ namespace Thirteen {
         const drepo = new DeckRepository(52);
         const discardPile = new Hand({ faceUp: true });
 
-        const playerSlots: PlayerSlot[] = [];
+        export const playerSlots: PlayerSlot[] = [];
         for (let i = 0; i < 4; i++) {
             playerSlots.push(new PlayerSlot(i));
         }
@@ -202,6 +211,15 @@ namespace Thirteen {
             updateStatus("Press Start Game to connect to the server!");
         }
 
+        export function asDisplayID(targetID: number): number {
+            for (let i = 0; i < playerIDs.length; i++) {
+                if (playerIDs[i] == targetID) {
+                    return i;
+                }
+            }
+            throw Error("Invalid id");
+        }
+
         function renderAll(options?: cards.RenderOptions) {
             drepo.deck.render(options);
             me.hand.render(options);
@@ -210,9 +228,10 @@ namespace Thirteen {
             playerSlots.forEach(h => h.hand.render(options));
         }
 
-        export function start(myCards: number[], playerCount: number, cardsPerPlayer: number): void {
-            drepo.deck.deal(cardsPerPlayer, playerSlots.slice(0, playerCount).map(s => s.hand), 10, () => {
-                coerceCards(myCards, me.hand.array);
+        export function start(myCards: number[], plIDs: number[], cardsPerPlayer: number): void {
+            playerIDs = utils.rotate(plIDs, connection!.id);
+            drepo.deck.deal(cardsPerPlayer, playerSlots.slice(0, plIDs.length).map(s => s.hand), 10, () => {
+                transmuteCards(myCards, me.hand.array);
                 me.hand.face(true);
                 drepo.deck.hide();
                 renderAll();
@@ -230,10 +249,8 @@ namespace Thirteen {
             if (playerID == connection.id) {
                 cards = me.queue.array.splice(0, me.queue.array.length);
             } else {
-                let index = (((connection.id + playerID) % 4) + 4) % 4;
-                console.log(connection, connection.id, playerID);
-                cards = playerSlots[index].hand.draw(cardIDs.length);
-                coerceCards(cardIDs, cards);
+                cards = playerSlots[asDisplayID(playerID)].hand.draw(cardIDs.length);
+                transmuteCards(cardIDs, cards);
             }
 
             discardPile.addCards(...cards);
@@ -288,7 +305,6 @@ namespace Thirteen {
         reset();
     }
 }
-
 
 $("#connect").click(() => {
     if ($("#connect").text() == "Connect" && !Thirteen.connection) {
