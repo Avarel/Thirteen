@@ -147,7 +147,7 @@ impl Instance {
 			);
 		}
 
-		self.broadcast(&DataOut::TURN_UPDATE {
+		self.broadcast(&DataOut::TURN_CHANGE{
 			player_id: game.current_player().id,
 			first_turn: true,
 			must_play: true,
@@ -161,20 +161,20 @@ impl Instance {
 				let mut game = self.model.write().unwrap();
 				match game.player_handle(client_id).try_pass() {
 					Ok(()) => {
-						self.send_out(client_id, &DataOut::PASS_SUCCESS {});
+						self.send_out(client_id, &DataOut::SUCCESS { message: String::from("PASS") });
 
 						if game.is_new_pattern() {
 							self.broadcast(&DataOut::PLAY {
 								player_id: client_id,
 								card_ids: Vec::new(),
 							});
-							self.broadcast(&DataOut::TURN_UPDATE {
+							self.broadcast(&DataOut::TURN_CHANGE{
 								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: true,
 							});
 						} else {
-							self.broadcast(&DataOut::TURN_UPDATE {
+							self.broadcast(&DataOut::TURN_CHANGE{
 								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: false,
@@ -185,7 +185,7 @@ impl Instance {
 						self.send_out(
 							client_id,
 							&DataOut::ERROR {
-								reason: match error {
+								message: match error {
 									PassError::OutOfTurn => String::from("It is not your turn."),
 									PassError::MustPlay => {
 										String::from("You must play a new pattern!")
@@ -212,7 +212,7 @@ impl Instance {
 						self.send_out(
 							client_id,
 							&DataOut::ERROR {
-								reason: String::from("Invalid card IDs."),
+								message: String::from("Invalid card IDs."),
 							},
 						);
 					}
@@ -220,7 +220,7 @@ impl Instance {
 
 				match game.player_handle(client_id).try_play(&cards) {
 					Ok(win) => {
-						self.send_out(client_id, &DataOut::PLAY_SUCCESS {});
+						self.send_out(client_id, &DataOut::SUCCESS { message: String::from("PLAY") });
 						self.broadcast(&DataOut::PLAY {
 							player_id: client_id,
 							card_ids: cards.iter().map(Card::into_id).collect(),
@@ -230,7 +230,7 @@ impl Instance {
 								victor_id: client_id,
 							});
 						} else {
-							self.broadcast(&DataOut::TURN_UPDATE {
+							self.broadcast(&DataOut::TURN_CHANGE{
 								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: false,
@@ -241,7 +241,7 @@ impl Instance {
 						self.send_out(
 							client_id,
 							&DataOut::ERROR {
-								reason: match error {
+								message: match error {
 									PlayError::OutOfTurn => {
 										String::from("It is not your turn! Wait a bit!")
 									}
@@ -350,7 +350,7 @@ impl Instance {
 			.map(|w| w.upgrade().unwrap())
 			.for_each(|s| s.close(ws::CloseCode::Normal).unwrap());
 		senders.clear();
-
+		println!("Instance {} is closing.", self.id)
 	}
 }
 
@@ -379,26 +379,24 @@ pub enum DataOut {
 	END {
 		victor_id: usize,
 	},
-
-	// TODO check this 
-	PLAY_SUCCESS {},
-	PASS_SUCCESS {},
-
-	TURN_UPDATE {
+	TURN_CHANGE {
 		player_id: usize,
 		first_turn: bool,
 		must_play: bool,
 	},
-
 	STATUS {
 		message: String,
 	},
+	SUCCESS {
+		message: String,
+	},
 	ERROR {
-		reason: String,
+		message: String,
 	},
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
 pub enum DataIn {
 	PASS {},
 	PLAY { card_ids: Vec<u8> },

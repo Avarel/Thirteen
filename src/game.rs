@@ -161,7 +161,7 @@ impl Game {
 
         for i in 0..self.players.len() {
             decks[i].sort();
-            self.player_handle(i).add_cards(&decks[i]);
+            self.players[i].cards = decks[i].to_vec();
         }
 
         // find lowest turn and force the card
@@ -222,6 +222,7 @@ impl Turn {
     }
 }
 
+#[derive(Debug)]
 pub struct Player {
     pub id: usize,
     cards: Vec<Card>,

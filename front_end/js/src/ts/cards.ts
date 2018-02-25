@@ -7,10 +7,14 @@ namespace cards {
         cardUrl: 'img/cards.png'
     };
 
+    let table = document.querySelector(opt.table)! as HTMLElement;
+
     export let zIndexCounter = 1;
 
-    export function mouseEvent(this: any, ev: any): void {
-        let card: Card = $(this).data('card');
+    let data = new Map<HTMLElement, Card>();
+
+    export function mouseEvent(this: HTMLElement, ev: any): void {
+        let card: Card = data.get(this)!;
         if (card.container) {
             let handler = card.container.clickHandler;
             if (handler) {
@@ -28,10 +32,8 @@ namespace cards {
             }
         }
 
-        // opt.table = $(opt.table)[0];
-        if ($(opt.table).css('position') == 'static') {
-            $(opt.table).css('position', 'relative');
-        }
+        table = document.querySelector(opt.table)! as HTMLElement;
+        table.style.position = 'relative';
     }
 
     export function newDeck(): Card[] {
@@ -66,20 +68,19 @@ namespace cards {
         container?: Container;
         targetPosition?: { top: number, left: number };
         hidden: boolean = false;
-        element: JQuery<HTMLElement>;
+        element: HTMLElement;
 
         constructor(public id: number) {
-            this.element = $('<div/>')
-                .addClass('card')
-                .data('card', this)
-                .appendTo($(opt.table))
-                .click(mouseEvent).css({
-                    'width': opt.cardSize.width,
-                    'height': opt.cardSize.height,
-                    'background-image': `url(${opt.cardUrl})`,
-                    'position': 'absolute',
-                    'cursor': 'pointer',
-                });
+            this.element = document.createElement("div");
+            this.element.className = "card";
+            this.element.style.width = `${opt.cardSize.width}px`;
+            this.element.style.height = `${opt.cardSize.height}px`;
+            this.element.style.backgroundImage = `url(${opt.cardUrl})`;
+            this.element.style.position = "absolute";
+            this.element.style.cursor = "pointer";
+            this.element.onclick = mouseEvent;
+            data.set(this.element, this);
+            table.appendChild(this.element); 
             this.face(false);
         }
 
@@ -145,12 +146,21 @@ namespace cards {
         }
 
         moveTo(x: number, y: number, speed: number, callback?: (this: HTMLElement) => void) {
-            let props = { top: y - (opt.cardSize.height / 2), left: x - (opt.cardSize.width / 2) };
-            $(this.element).animate(props, speed || opt.animationSpeed, callback);
+            if (speed == 0) {
+                this.element.style.top = `${y}px`;
+                this.element.style.left = `${x}px`;
+            } else {
+                this.element.style.transition = `all ease-in-out ${speed}ms`;
+                this.element.style.top = `${y}px`;
+                this.element.style.left = `${x}px`;
+                setTimeout(() => {
+                    this.element.style.transition = null;
+                }, speed);
+            }
         }
 
         rotate(angle: number): void {
-            $(this.element).css('transform', `rotate(${angle}deg)`);
+            this.element.style.transform = `rotate(${angle}deg)`;
         }
 
         face(up: boolean): void {
@@ -173,22 +183,21 @@ namespace cards {
                         ypos *= -2;
                         break;
                 }
-
-                $(this.element).css('background-position', `${xpos}px ${ypos}px`);
+                this.element.style.backgroundPosition = `${xpos}px ${ypos}px`;
             } else {
                 let y = opt.cardBack == 'red' ? 0 : -opt.cardSize.height;
-                $(this.element).css('background-position', '0px ' + y + 'px');
+                this.element.style.backgroundPosition = '0px ' + y + 'px';
             }
         }
 
         show(): void {
             this.hidden = false;
-            $(this.element).show();
+            this.element.style.display = "block";
         }
 
         hide(): void {
             this.hidden = true;
-            $(this.element).hide();
+            this.element.style.display = "none";
         }
     }
 
@@ -216,9 +225,9 @@ namespace cards {
                 return this.left;
             }
             if (this.right !== undefined) {
-                return ($(opt.table).width() || 0) - this.right;
+                return table.clientWidth - this.right;
             }
-            return ($(opt.table).width() || 0) / 2;
+            return table.clientWidth / 2;
         }
 
         set x(xPos) {
@@ -230,9 +239,9 @@ namespace cards {
                 return this.top;
             }
             if (this.bottom !== undefined) {
-                return ($(opt.table).height() || 0) - this.bottom;
+                return table.clientHeight - this.bottom;
             }
-            return ($(opt.table).height() || 0) / 2;
+            return table.clientHeight / 2;
         }
 
         set y(yPos) {
@@ -249,7 +258,6 @@ namespace cards {
 
     export interface RenderOptions {
         readonly speed?: number;
-        readonly immediate?: boolean;
         readonly callback?: (...args: any[]) => void;
     }
 
@@ -322,7 +330,7 @@ namespace cards {
             this.clickHandler = { func, context };
         }
 
-        render({ speed, immediate, callback }: RenderOptions = {}): void {
+        render({ speed, callback }: RenderOptions = {}): void {
             this.sort();
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
@@ -331,18 +339,8 @@ namespace cards {
 
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
-                $(card.element).css('z-index', zIndexCounter++);
-
-                let props = {
-                    top: card.targetPosition!.top,
-                    left: card.targetPosition!.left,
-                };
-
-                if (immediate) {
-                    $(card.element).css(props as any);
-                } else {
-                    $(card.element).animate(props, speed);
-                }
+                card.element.style.zIndex = (zIndexCounter++).toString();
+                card.moveTo(card.targetPosition!.left, card.targetPosition!.top, speed);
             }
 
             let update = () => {
@@ -357,7 +355,7 @@ namespace cards {
                 }
             };
 
-            if (immediate) {
+            if (speed == 0) {
                 update();
             } else {
                 setTimeout(update, speed);

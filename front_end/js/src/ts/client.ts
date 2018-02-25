@@ -16,7 +16,7 @@ namespace Thirteen {
             this.ws.onmessage = event => this.onReceive(event);
         }
 
-        send(data: any): void {
+        send(data: ThirteenAPI.PayloadOut): void {
             this.ws.send(JSON.stringify(data));
         }
 
@@ -40,7 +40,7 @@ namespace Thirteen {
         }
 
         onReceive(event: MessageEvent): void {
-            let payload = JSON.parse(event.data) as Client.Payload;
+            let payload = JSON.parse(event.data) as ThirteenAPI.PayloadIn;
 
             switch (payload.type) {
                 case "QUEUE_UPDATE":
@@ -56,12 +56,12 @@ namespace Thirteen {
                     Display.updateStatus(payload.message);
                     break;
                 case "ERROR":
-                    Display.updateStatus(payload.reason);
+                    Display.updateStatus(payload.message);
                     break;
                 case "PLAY": 
                     Display.play(payload.player_id, payload.card_ids);
                     break;
-                case "TURN_UPDATE": {
+                case "TURN_CHANGE": {
                     Display.playerSlots.forEach(c => c.tag.hide());
                     Display.playerSlots[Display.asDisplayID(payload.player_id)].tag.show();
 
@@ -81,11 +81,12 @@ namespace Thirteen {
 
                     break;
                 }
-                case "PLAY_SUCCESS":
-                    Display.updateStatus("You successfully played this turn!");
-                    break;
-                case "PASS_SUCCESS":
-                    Display.updateStatus("You passed for this turn!");
+                case "SUCCESS":
+                    if (payload.message == "play") {
+                        Display.updateStatus("You successfully played this turn!");
+                    } else {
+                        Display.updateStatus("You passed for this turn!");
+                    }
                     break;
                 case "END":
                     if (payload.victor_id == this.id) {
@@ -98,7 +99,6 @@ namespace Thirteen {
             }
         }
     }
-    
 
     namespace Display {
         import Card = cards.Card;
@@ -223,7 +223,7 @@ namespace Thirteen {
 
         export function start(myCards: number[], plIDs: number[], cardsPerPlayer: number): void {
             playerIDs = utils.rotate(plIDs, connection!.id);
-            drepo.deck.deal(cardsPerPlayer, playerSlots.slice(0, plIDs.length).map(s => s.hand), 10, () => {
+            drepo.deck.deal(cardsPerPlayer, playerSlots.slice(0, plIDs.length).map(s => s.hand), 50, () => {
                 transmuteCards(myCards, me.hand.array);
                 me.hand.face(true);
                 drepo.deck.hide();
@@ -272,13 +272,13 @@ namespace Thirteen {
 
         $('#pass').click(() => {
             if (connection) {
-                connection.send({ Pass: {} });
+                connection.send({ type: "PASS" });
             }
         });
 
         $('#play').click(() => {
             if (connection) {
-                connection.send({ Play: { ids: me.queue.array.map(c => c.id) } });
+                connection.send({ type: "PLAY", card_ids: me.queue.array.map(c => c.id) });
             }
         });
 
@@ -294,7 +294,7 @@ namespace Thirteen {
             me.queue.render();
         });
 
-        $(window).resize(utils.debounce(() => renderAll({ immediate: true }), 500));
+        $(window).resize(utils.debounce(() => renderAll({ speed: 0 }), 500));
         reset();
     }
 }
