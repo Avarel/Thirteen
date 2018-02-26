@@ -7,7 +7,7 @@ namespace cards {
         cardUrl: 'img/cards.png'
     };
 
-    let table = document.querySelector(opt.table)! as HTMLElement;
+    let table = document.querySelector<HTMLElement>(opt.table)!;
 
     export let zIndexCounter = 1;
 
@@ -32,7 +32,7 @@ namespace cards {
             }
         }
 
-        table = document.querySelector(opt.table)! as HTMLElement;
+        table = document.querySelector<HTMLElement>(opt.table)!;
         table.style.position = 'relative';
     }
 
@@ -82,6 +82,11 @@ namespace cards {
             data.set(this.element, this);
             table.appendChild(this.element); 
             this.face(false);
+        }
+
+        delete() {
+            data.delete(this.element);
+            this.element.remove();
         }
 
         static from(suit: Suit, rank: number): Card {
@@ -284,11 +289,22 @@ namespace cards {
             this.array.length = 0;
         }
 
-        sort(): void {
-            this.array.sort((a, b) => {
-                let compare = a.vcRank - b.vcRank;
-                return compare === 0 ? a.suit - b.suit : compare;
+        sort(): void { // use some hacks to make a stable sort
+            let zip: [number, Card][] = [];
+            for (let [index, item] of this.array.slice(0).entries()) {
+                zip[index] = [index, item];
+            }
+            zip.sort((a, b) => {
+                let compare = a[1].vcRank - b[1].vcRank;
+                if (compare == 0) {
+                    compare = a[1].suit - b[1].suit;
+                }
+                if (compare == 0) {
+                    return a[0] - b[0];
+                }
+                return compare;
             });
+            this.array = zip.map(([_, c]) => c);
         }
 
         draw(n: number): Card[] {
