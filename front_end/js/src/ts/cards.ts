@@ -289,10 +289,10 @@ namespace cards {
             this.array.length = 0;
         }
 
-        sort(): void { // use some hacks to make a stable sort
+        sort(): void { // stabilize the sort
             let zip: [number, Card][] = [];
-            for (let [index, item] of this.array.slice(0).entries()) {
-                zip[index] = [index, item];
+            for (let i = 0; i < this.array.length; i++) {
+                zip.push([i, this.array[i]])
             }
             zip.sort((a, b) => {
                 let compare = a[1].vcRank - b[1].vcRank;
@@ -307,8 +307,16 @@ namespace cards {
             this.array = zip.map(([_, c]) => c);
         }
 
-        draw(n: number): Card[] {
-            return this.array.splice(0, n);
+        draw(n: number, random?: boolean): Card[] {
+            if (random) {
+                let cards = [];
+                for (let i = 0; i < n; i++) {
+                    cards.push(this.array.splice(Math.floor(Math.random() * this.array.length), 1)[0]);
+                }
+                return cards;
+            } else {
+                return this.array.splice(0, n);
+            }
         }
 
         addCards(...cards: Card[]): void {

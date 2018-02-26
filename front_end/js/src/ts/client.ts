@@ -81,6 +81,7 @@ namespace Thirteen {
         reset() {
             this.showTag(false);
             this.hand.clear();
+            this.hand.face(false);
         }
     }
 
@@ -182,10 +183,10 @@ namespace Thirteen {
             reset();
         },
         onQueueUpdate(event: ThirteenAPI.QueueUpdateEvent) {
-            updateStatus(`${event.size}/${event.goal} connected players!`);;
+            updateStatus(`${event.size}/${event.goal} connected players!`);
         },
         onReady(event: ThirteenAPI.ReadyEvent) {
-            playerIDs = utils.rotate(event.player_ids, connection!.id);
+            playerIDs = utils.rotate(event.player_ids.slice(0), connection!.id);
             dealPile.deck.deal(event.cards_per_player, playerSlots.slice(0, playerIDs.length).map(s => s.hand), 75, () => {
                 transmuteCards(event.your_cards, me.hand.array);
                 me.hand.face(true);
@@ -207,15 +208,17 @@ namespace Thirteen {
 
             let cards: Card[];
 
+            console.log("why", event.player_id);
+
             if (event.player_id == connection.id) {
                 cards = me.queue.array.splice(0, me.queue.array.length);
             } else {
-                cards = playerSlots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length);
+                cards = playerSlots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
                 transmuteCards(event.card_ids, cards);
             }
 
             discardPile.addCards(...cards);
-            renderAll();
+            renderAll({speed: 300});
         },
         onSuccess(event: ThirteenAPI.SuccessEvent) {
             if (event.message == "PLAY") {

@@ -8,6 +8,7 @@ use game;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock, Weak};
 use std::collections::{HashMap, VecDeque};
+use linked_hash_map::LinkedHashMap;
 
 pub fn start_server() {
 	println!("Starting server.");
@@ -96,7 +97,8 @@ pub struct Instance {
 	game_size: usize,
 	running: AtomicBool,
 	server: Weak<Server>,
-	senders: RwLock<HashMap<usize, Weak<ws::Sender>>>,
+	// TODO find a linked hash map or keep insertion order
+	senders: RwLock<LinkedHashMap<usize, Weak<ws::Sender>>>,
 	model: RwLock<game::Game>,
 }
 
@@ -109,7 +111,7 @@ impl Instance {
 			game_size,
 			running: false.into(),
 			server: server,
-			senders: HashMap::with_capacity(game_size).into(),
+			senders: LinkedHashMap::with_capacity(game_size).into(),
 			model: game::Game::new().into(),
 		}.into();
 		strong.counter.store(id + 1, Ordering::Relaxed);
@@ -230,7 +232,7 @@ impl Instance {
 								victor_id: client_id,
 							});
 						} else {
-							self.broadcast(&DataOut::TURN_CHANGE{
+							self.broadcast(&DataOut::TURN_CHANGE {
 								player_id: game.current_player().id,
 								first_turn: false,
 								must_play: false,

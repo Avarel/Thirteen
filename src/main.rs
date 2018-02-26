@@ -11,6 +11,7 @@ extern crate ws;
 extern crate chrono;
 extern crate rand;
 extern crate timer;
+extern crate linked_hash_map;
 
 pub mod game;
 pub mod cards;
