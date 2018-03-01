@@ -330,16 +330,14 @@ impl Instance {
 		}
 
 		if self.connected_count() == 0 {
-			self.close();
 			if self.running() {
+				self.close();
 				self.server.upgrade().unwrap().remove_rn_instance(self.id);
-			} else {
-				self.server.upgrade().unwrap().remove_mm_instance(self.id);
 			}
 		} else if self.connected_count() == 1 && self.running() {
 			self.close();
 			self.server.upgrade().unwrap().remove_rn_instance(self.id);
-		} else {
+		} else if self.running() {
 			self.broadcast_queue_update();
 		}
 	}

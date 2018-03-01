@@ -1,0 +1,38 @@
+{
+  "name": "thirteen-www",
+  "version": "0.0.1",
+  "description": "Serve the website for the Thirteen game.",
+  "main": "target/main.js",
+  "private": true,
+  "scripts": {
+    "start": "node ./target/main.js",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Avarel/Thirteen.git"
+  },
+  "keywords": [
+    "game",
+    "client"
+  ],
+  "author": "Avarel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Avarel/Thirteen/issues"
+  },
+  "homepage": "https://github.com/Avarel/Thirteen#readme",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "cookie-parser": "^1.4.3",
+    "express": "^4.16.2",
+    "node-sass-middleware": "^0.11.0",
+    "pug": "^2.0.0-rc.4"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.1",
+    "@types/express": "^4.11.1",
+    "@types/node-sass-middleware": "0.0.30",
+    "typescript": "^2.7.2"
+  }
+}
