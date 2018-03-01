@@ -3,4 +3,3 @@
 Cargo.lock
 .DS_Store
 /front_end/css/.sass-cache/
-/front_end/js/target/

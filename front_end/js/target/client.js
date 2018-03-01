@@ -1,16 +1,14 @@
+"use strict";
 cards.init({ table: '.game' });
-
-namespace Thirteen {
-    export let connection: ThirteenAPI.Client | undefined = undefined;
-
-    import Card = cards.Card;
-    import Deck = cards.Deck;
-    import Hand = cards.Hand;
-    import Anchor = cards.Anchor;
-
-    export let playerIDs: number[] = [];
-
-    function transmuteCards(ids: number[], cards: Card[]): Card[] {
+var Thirteen;
+(function (Thirteen) {
+    Thirteen.connection = undefined;
+    var Card = cards.Card;
+    var Deck = cards.Deck;
+    var Hand = cards.Hand;
+    var Anchor = cards.Anchor;
+    Thirteen.playerIDs = [];
+    function transmuteCards(ids, cards) {
         if (ids.length != cards.length) {
             throw new Error("cards and ids are not the same length");
         }
@@ -19,35 +17,28 @@ namespace Thirteen {
         }
         return cards;
     }
-
     class DealPile {
-        readonly cards: Card[] = [];
-        readonly deck: Deck = new Deck();
-
-        constructor(n: number) {
+        constructor(n) {
+            this.cards = [];
+            this.deck = new Deck();
             for (let i = 0; i < n; i++) {
                 this.cards.push(new Card(0));
             }
             this.deck.addCards(...this.cards);
         }
-
-        reset(): void {
+        reset() {
             this.deck.array.forEach(c => c.id = 0);
             this.deck.clear();
             this.deck.addCards(...this.cards);
         }
-
-        get(n: number): Card {
+        get(n) {
             return this.deck.array[n];
         }
     }
-
     class PlayerSlot {
-        readonly tag: HTMLElement;
-        readonly hand: Hand;
-
-        constructor(readonly id: number) {
-            this.tag = document.querySelectorAll<HTMLElement>('.name-tag')[id];
+        constructor(id) {
+            this.id = id;
+            this.tag = document.querySelectorAll('.name-tag')[id];
             switch (id) {
                 case 0:
                     this.hand = new Hand({ position: new Anchor({ bottom: 25 }), angle: 0 });
@@ -65,205 +56,188 @@ namespace Thirteen {
                     throw new Error('Something happened while loading...');
             }
         }
-
-        set name(name: string) {
+        set name(name) {
             this.tag.innerText = name;
         }
-
-        showTag(on: boolean) {
+        showTag(on) {
             this.tag.style.display = on ? 'block' : 'none';
         }
-
         clear() {
             this.hand.clear();
         }
-
         reset() {
             this.showTag(false);
             this.hand.clear();
             this.hand.face(false);
         }
     }
-
     const dealPile = new DealPile(52);
     const discardPile = new Hand({ faceUp: true });
-
-    export const playerSlots: PlayerSlot[] = [];
+    Thirteen.playerSlots = [];
     for (let i = 0; i < 4; i++) {
-        playerSlots.push(new PlayerSlot(i));
+        Thirteen.playerSlots.push(new PlayerSlot(i));
     }
-
     const me = {
-        hand: playerSlots[0].hand,
+        hand: Thirteen.playerSlots[0].hand,
         queue: new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }) })
     };
-
-    export function reset() {
+    function reset() {
         showPlay(false);
         showPass(false);
-
         dealPile.reset();
         dealPile.deck.show();
-        playerSlots.forEach(p => p.reset());
-
+        Thirteen.playerSlots.forEach(p => p.reset());
         renderAll({ speed: 2000, callback: () => dealPile.deck.show() });
-
         updateStatus("Press Start Game to connect to the server!");
     }
-
-    export function asDisplayID(targetID: number): number {
-        for (let i = 0; i < playerIDs.length; i++) {
-            if (playerIDs[i] == targetID) {
+    Thirteen.reset = reset;
+    function asDisplayID(targetID) {
+        for (let i = 0; i < Thirteen.playerIDs.length; i++) {
+            if (Thirteen.playerIDs[i] == targetID) {
                 return i;
             }
         }
         throw Error("Invalid id");
     }
-
-    function renderAll(options?: cards.RenderOptions) {
+    Thirteen.asDisplayID = asDisplayID;
+    function renderAll(options) {
         dealPile.deck.render(options);
         me.hand.render(options);
         me.queue.render(options);
         discardPile.render(options);
-        playerSlots.forEach(h => h.hand.render(options));
+        Thirteen.playerSlots.forEach(h => h.hand.render(options));
     }
-
-    const playButton = document.querySelector<HTMLElement>("#play")!;
-    const passButton = document.querySelector<HTMLElement>("#pass")!;
-
-    export function showPlay(on: boolean): void {
+    const playButton = document.querySelector("#play");
+    const passButton = document.querySelector("#pass");
+    function showPlay(on) {
         console.log("Show play ", on);
         playButton.style.display = on ? 'block' : 'none';
     }
-
-    export function showPass(on: boolean): void {
+    Thirteen.showPlay = showPlay;
+    function showPass(on) {
         passButton.style.display = on ? 'block' : 'none';
     }
-
-    export function updateStatus(msg: string): void {
-        document.querySelector<HTMLElement>(".status .text")!.innerText = msg;
+    Thirteen.showPass = showPass;
+    function updateStatus(msg) {
+        document.querySelector(".status .text").innerText = msg;
     }
-
+    Thirteen.updateStatus = updateStatus;
     passButton.onclick = () => {
-        if (connection) {
-            connection.send({ type: "PASS" });
+        if (Thirteen.connection) {
+            Thirteen.connection.send({ type: "PASS" });
         }
     };
-
     playButton.onclick = () => {
-        if (connection) {
-            connection.send({ type: "PLAY", card_ids: me.queue.array.map(c => c.id) });
+        if (Thirteen.connection) {
+            Thirteen.connection.send({ type: "PLAY", card_ids: me.queue.array.map(c => c.id) });
         }
     };
-
     me.hand.click(card => {
         me.queue.addCards(card);
         me.queue.render();
         me.hand.render();
     });
-
     me.queue.click(card => {
         me.hand.addCards(card);
         me.hand.render();
         me.queue.render();
     });
-
     window.onresize = utils.debounce(() => renderAll({ speed: 0 }), 500);
     reset();
-
-    export let handler: ThirteenAPI.EventHandler = {
-        onConnect(event: Event) {
+    Thirteen.handler = {
+        onConnect(event) {
             console.log("Connected to server.");
             Header.connectBtn.innerText = "Disconnect";
         },
-        onDisconnect(event: Event) {
+        onDisconnect(event) {
             console.log("Disconnected from server.");
             Header.connectBtn.innerText = "Connect";
-            connection = undefined;
+            Thirteen.connection = undefined;
             reset();
         },
-        onQueueUpdate(event: ThirteenAPI.QueueUpdateEvent) {
+        onQueueUpdate(event) {
             updateStatus(`${event.size}/${event.goal} connected players!`);
         },
-        onReady(event: ThirteenAPI.ReadyEvent) {
-            playerIDs = utils.rotate(event.player_ids.slice(0), connection!.id);
-            dealPile.deck.deal(event.cards_per_player, playerSlots.slice(0, playerIDs.length).map(s => s.hand), 75, () => {
+        onReady(event) {
+            Thirteen.playerIDs = utils.rotate(event.player_ids.slice(0), Thirteen.connection.id);
+            dealPile.deck.deal(event.cards_per_player, Thirteen.playerSlots.slice(0, Thirteen.playerIDs.length).map(s => s.hand), 75, () => {
                 transmuteCards(event.your_cards, me.hand.array);
                 me.hand.face(true);
                 dealPile.deck.hide();
                 renderAll();
             });
         },
-        onStatus(event: ThirteenAPI.StatusEvent) {
+        onStatus(event) {
             updateStatus(event.message);
         },
-        onError(event: ThirteenAPI.ErrorEvent) {
+        onError(event) {
             updateStatus(event.message);
         },
-        onPlay(event: ThirteenAPI.PlayEvent) {
-            if (!connection) return;
-
+        onPlay(event) {
+            if (!Thirteen.connection)
+                return;
             dealPile.deck.addCards(...discardPile.array);
             discardPile.clear();
-
-            let cards: Card[];
-
+            let cards;
             console.log("why", event.player_id);
-
-            if (event.player_id == connection.id) {
+            if (event.player_id == Thirteen.connection.id) {
                 cards = me.queue.array.splice(0, me.queue.array.length);
-            } else {
-                cards = playerSlots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
+            }
+            else {
+                cards = Thirteen.playerSlots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
                 transmuteCards(event.card_ids, cards);
             }
-
             discardPile.addCards(...cards);
-            renderAll({speed: 300});
+            renderAll({ speed: 300 });
         },
-        onSuccess(event: ThirteenAPI.SuccessEvent) {
+        onSuccess(event) {
             if (event.message == "PLAY") {
                 updateStatus("You successfully played this round.");
-            } else {
+            }
+            else {
                 updateStatus("You passed for this round.");
             }
         },
-        onTurnChange(event: ThirteenAPI.TurnChangeEvent) {
-            playerSlots.forEach(c => c.showTag(false));
-            playerSlots[asDisplayID(event.player_id)].showTag(true);
-
+        onTurnChange(event) {
+            Thirteen.playerSlots.forEach(c => c.showTag(false));
+            Thirteen.playerSlots[asDisplayID(event.player_id)].showTag(true);
             if (event.player_id == this.id) {
                 showPlay(true);
                 showPass(!event.must_play);
-
                 if (event.first_turn) {
                     updateStatus("You got the first turn!");
-                } else {
+                }
+                else {
                     updateStatus("It is your turn!");
                 }
-            } else {
+            }
+            else {
                 showPlay(false);
                 showPass(false);
             }
         },
-        onEnd(event: ThirteenAPI.EndEvent) {
+        onEnd(event) {
             if (event.victor_id == this.id) {
                 updateStatus("You won!");
-            } else {
+            }
+            else {
                 updateStatus("You lost!");
             }
             setTimeout(() => this.disconnect(), 5000);
         }
     };
-}
-namespace Header {
-    export let connectBtn = document.querySelector<HTMLElement>("#connect")!;
-    connectBtn.onclick = () => {
-        if (connectBtn.innerText == "Connect" && !Thirteen.connection) {
+})(Thirteen || (Thirteen = {}));
+var Header;
+(function (Header) {
+    Header.connectBtn = document.querySelector("#connect");
+    Header.connectBtn.onclick = () => {
+        if (Header.connectBtn.innerText == "Connect" && !Thirteen.connection) {
             Thirteen.connection = new ThirteenAPI.Client("ws://gnarbot.xyz/thirteen", Thirteen.handler);
-            connectBtn.innerText = "Disconnect";
-        } else if (Thirteen.connection) {
+            Header.connectBtn.innerText = "Disconnect";
+        }
+        else if (Thirteen.connection) {
             Thirteen.connection.disconnect();
-            connectBtn.innerText = "Connect";
+            Header.connectBtn.innerText = "Connect";
         }
     };
-}
+})(Header || (Header = {}));
