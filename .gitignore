@@ -2,6 +2,5 @@
 **/*.rs.bk
 Cargo.lock
 .DS_Store
-/front_end/.sass-cache/
+/front_end/css/.sass-cache/
 /front_end/js/target/
-/front_end/js/src/ts/external

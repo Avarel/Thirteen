@@ -9,8 +9,6 @@ namespace cards {
 
     let table = document.querySelector<HTMLElement>(opt.table)!;
 
-    export let zIndexCounter = 1;
-
     let data = new Map<HTMLElement, Card>();
 
     export function mouseEvent(this: HTMLElement, ev: any): void {

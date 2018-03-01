@@ -97,7 +97,6 @@ pub struct Instance {
 	game_size: usize,
 	running: AtomicBool,
 	server: Weak<Server>,
-	// TODO find a linked hash map or keep insertion order
 	senders: RwLock<LinkedHashMap<usize, Weak<ws::Sender>>>,
 	model: RwLock<game::Game>,
 }

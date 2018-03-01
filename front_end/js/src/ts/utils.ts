@@ -6,7 +6,6 @@ namespace utils {
         }
     
         let timer: any;
-    
         return function(this: any) {
             let args = arguments;
             ctx = ctx || this;
