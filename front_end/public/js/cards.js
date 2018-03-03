@@ -1,6 +1,6 @@
 "use strict";
-var cards;
-(function (cards_1) {
+var CardsJS;
+(function (CardsJS) {
     const opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 150,
@@ -19,7 +19,7 @@ var cards;
             }
         }
     }
-    cards_1.mouseEvent = mouseEvent;
+    CardsJS.mouseEvent = mouseEvent;
     function init(options) {
         if (options) {
             for (let i in options) {
@@ -31,7 +31,7 @@ var cards;
         table = document.querySelector(opt.table);
         table.style.position = 'relative';
     }
-    cards_1.init = init;
+    CardsJS.init = init;
     function newDeck() {
         let all = [];
         for (let i = 0; i < 52; i++) {
@@ -39,27 +39,14 @@ var cards;
         }
         return all;
     }
-    cards_1.newDeck = newDeck;
-    function shuffle(deck) {
-        let i = deck.array.length;
-        if (i == 0)
-            return;
-        while (--i) {
-            let j = Math.floor(Math.random() * (i + 1));
-            let tempi = deck.array[i];
-            let tempj = deck.array[j];
-            deck.array[i] = tempj;
-            deck.array[j] = tempi;
-        }
-    }
-    cards_1.shuffle = shuffle;
+    CardsJS.newDeck = newDeck;
     let Suit;
     (function (Suit) {
         Suit[Suit["Spades"] = 0] = "Spades";
         Suit[Suit["Clubs"] = 1] = "Clubs";
         Suit[Suit["Diamonds"] = 2] = "Diamonds";
         Suit[Suit["Hearts"] = 3] = "Hearts";
-    })(Suit = cards_1.Suit || (cards_1.Suit = {}));
+    })(Suit = CardsJS.Suit || (CardsJS.Suit = {}));
     class Card {
         constructor(id) {
             this.id = id;
@@ -194,19 +181,27 @@ var cards;
             this.element.style.display = "none";
         }
     }
-    cards_1.Card = Card;
+    CardsJS.Card = Card;
     class Anchor {
-        constructor({ left, right, top, bottom } = {}) {
-            if (left !== undefined && right !== undefined) {
-                throw new Error('Can not have left and right prop at the same time.');
+        constructor(argument = { cx: 0, cy: 0 }) {
+            if (argument.left !== undefined) {
+                this.left = argument.left;
             }
-            else if (top !== undefined && right !== undefined) {
-                throw new Error('Can not have top and bottom prop at the same time.');
+            else if (argument.right !== undefined) {
+                this.right = argument.right;
             }
-            this.left = left;
-            this.right = right;
-            this.top = top;
-            this.bottom = bottom;
+            if (argument.top !== undefined) {
+                this.top = argument.top;
+            }
+            else if (argument.bottom !== undefined) {
+                this.bottom = argument.bottom;
+            }
+            if (argument.cx !== undefined) {
+                this.cx = argument.cx;
+            }
+            if (argument.cy !== undefined) {
+                this.cy = argument.cy;
+            }
         }
         get x() {
             if (this.left !== undefined) {
@@ -215,7 +210,7 @@ var cards;
             if (this.right !== undefined) {
                 return table.clientWidth - this.right;
             }
-            return table.clientWidth / 2;
+            return table.clientWidth / 2 + (this.cx || 0);
         }
         set x(xPos) {
             this.left = xPos;
@@ -227,20 +222,21 @@ var cards;
             if (this.bottom !== undefined) {
                 return table.clientHeight - this.bottom;
             }
-            return table.clientHeight / 2;
+            return table.clientHeight / 2 + (this.cy || 0);
         }
         set y(yPos) {
             this.top = yPos;
         }
     }
-    cards_1.Anchor = Anchor;
+    CardsJS.Anchor = Anchor;
     class Container {
-        constructor({ position, angle, faceUp, hidden } = {}) {
+        constructor({ position, angle, faceUp, hidden, zIndex } = {}) {
             this.array = [];
             this.position = position || new Anchor();
             this.angle = angle || 0;
             this.faceUp = faceUp;
             this.hidden = hidden;
+            this.zIndex = zIndex || 0;
         }
         clear() {
             this.array.length = 0;
@@ -261,6 +257,18 @@ var cards;
                 return compare;
             });
             this.array = zip.map(([_, c]) => c);
+        }
+        shuffle() {
+            let i = this.array.length;
+            if (i == 0)
+                return;
+            while (--i) {
+                let j = Math.floor(Math.random() * (i + 1));
+                let tempi = this.array[i];
+                let tempj = this.array[j];
+                this.array[i] = tempj;
+                this.array[j] = tempi;
+            }
         }
         draw(n, random) {
             if (random) {
@@ -308,7 +316,7 @@ var cards;
             this.sort();
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
-            let zIndexCounter = 1;
+            let zIndexCounter = this.zIndex * 52;
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
                 card.element.style.zIndex = (zIndexCounter++).toString();
@@ -351,7 +359,7 @@ var cards;
             return 'Container';
         }
     }
-    cards_1.Container = Container;
+    CardsJS.Container = Container;
     class Deck extends Container {
         constructor(options = {}) {
             super(options);
@@ -391,7 +399,7 @@ var cards;
             dealOne();
         }
     }
-    cards_1.Deck = Deck;
+    CardsJS.Deck = Deck;
     class Hand extends Container {
         constructor(options = {}) {
             super(options);
@@ -416,7 +424,7 @@ var cards;
             return 'Hand' + super.toString();
         }
     }
-    cards_1.Hand = Hand;
+    CardsJS.Hand = Hand;
     class Pile extends Container {
         constructor() {
             super(...arguments);
@@ -438,6 +446,6 @@ var cards;
             }
         }
     }
-    cards_1.Pile = Pile;
-})(cards || (cards = {}));
+    CardsJS.Pile = Pile;
+})(CardsJS || (CardsJS = {}));
 ;

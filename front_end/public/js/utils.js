@@ -12,7 +12,7 @@ var utils;
             ctx = ctx || this;
             invokeAsap && !timer && fn.apply(ctx, args);
             clearTimeout(timer);
-            timer = setTimeout(function () {
+            timer = setTimeout(() => {
                 !invokeAsap && fn.apply(ctx, args);
                 timer = undefined;
             }, timeout);

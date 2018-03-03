@@ -1,12 +1,14 @@
-cards.init({ table: '.game' });
+import { render } from "../../node_modules/@types/node-sass/index";
+
+CardsJS.init({ table: '.game' });
 
 namespace Thirteen {
     export let connection: ThirteenAPI.Client | undefined = undefined;
 
-    import Card = cards.Card;
-    import Deck = cards.Deck;
-    import Hand = cards.Hand;
-    import Anchor = cards.Anchor;
+    import Card = CardsJS.Card;
+    import Deck = CardsJS.Deck;
+    import Hand = CardsJS.Hand;
+    import Anchor = CardsJS.Anchor;
 
     export let playerIDs: number[] = [];
 
@@ -20,93 +22,98 @@ namespace Thirteen {
         return cards;
     }
 
-    class DealPile {
-        readonly cards: Card[] = [];
-        readonly deck: Deck = new Deck();
+    namespace DealPile {
+        const cards: Card[] = [];
+        export const deck: Deck = new Deck();
 
-        constructor(n: number) {
+        export function reset(): void {
+            deck.array.forEach(c => c.id = 0);
+            deck.clear();
+            deck.addCards(...cards);
+        }
+
+        function init(n: number) {
             for (let i = 0; i < n; i++) {
-                this.cards.push(new Card(0));
+                cards.push(new Card(0));
             }
-            this.deck.addCards(...this.cards);
+            deck.addCards(...cards);
         }
-
-        reset(): void {
-            this.deck.array.forEach(c => c.id = 0);
-            this.deck.clear();
-            this.deck.addCards(...this.cards);
-        }
-
-        get(n: number): Card {
-            return this.deck.array[n];
-        }
+        init(52);
     }
 
-    class PlayerSlot {
-        readonly tag: HTMLElement;
-        readonly hand: Hand;
+    namespace Players {
+        class Slot {
+            readonly tag: HTMLElement;
+            readonly hand: Hand;
 
-        constructor(readonly id: number) {
-            this.tag = document.querySelectorAll<HTMLElement>('.name-tag')[id];
-            switch (id) {
-                case 0:
-                    this.hand = new Hand({ position: new Anchor({ bottom: 25 }), angle: 0 });
-                    break;
-                case 1:
-                    this.hand = new Hand({ position: new Anchor({ top: 0 }), angle: 180 });
-                    break;
-                case 2:
-                    this.hand = new Hand({ position: new Anchor({ left: 0 }), angle: 90 });
-                    break;
-                case 3:
-                    this.hand = new Hand({ position: new Anchor({ right: 0 }), angle: 270 });
-                    break;
-                default:
-                    throw new Error('Something happened while loading...');
+            constructor(readonly id: number) {
+                this.tag = document.querySelectorAll<HTMLElement>('.name-tag')[id];
+                switch (id) {
+                    case 0:
+                        this.hand = new Hand({ position: new Anchor({ bottom: 25 }), angle: 0 });
+                        break;
+                    case 1:
+                        this.hand = new Hand({ position: new Anchor({ top: 0 }), angle: 180 });
+                        break;
+                    case 2:
+                        this.hand = new Hand({ position: new Anchor({ left: 0 }), angle: 90 });
+                        break;
+                    case 3:
+                        this.hand = new Hand({ position: new Anchor({ right: 0 }), angle: 270 });
+                        break;
+                    default:
+                        throw new Error('Something happened while loading...');
+                }
+            }
+
+            set name(name: string) {
+                this.tag.innerText = name;
+            }
+
+            showTag(on: boolean) {
+                this.tag.style.display = on ? 'block' : 'none';
+            }
+
+            clear() {
+                this.hand.clear();
+            }
+
+            reset() {
+                this.showTag(false);
+                this.hand.clear();
+                this.hand.face(false);
             }
         }
 
-        set name(name: string) {
-            this.tag.innerText = name;
+        export const slots: Slot[] = [];
+        for (let i = 0; i < 4; i++) {
+            slots.push(new Slot(i));
         }
 
-        showTag(on: boolean) {
-            this.tag.style.display = on ? 'block' : 'none';
-        }
-
-        clear() {
-            this.hand.clear();
-        }
-
-        reset() {
-            this.showTag(false);
-            this.hand.clear();
-            this.hand.face(false);
-        }
+        export const self = {
+            hand: slots[0].hand,
+            queue: new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }) })
+        };
     }
 
-    const dealPile = new DealPile(52);
-    const discardPile = new Hand({ faceUp: true });
+    namespace History {
+        export const slots: Hand[] = [];
 
-    export const playerSlots: PlayerSlot[] = [];
-    for (let i = 0; i < 4; i++) {
-        playerSlots.push(new PlayerSlot(i));
+        for (let i = 0; i < 3; i++) {
+            slots.push(new Hand({ faceUp: true, position: new Anchor({ cx: 0, cy: 10 - i * 20 }), zIndex: 5 - i }));
+        }
     }
-
-    const me = {
-        hand: playerSlots[0].hand,
-        queue: new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }) })
-    };
 
     export function reset() {
         showPlay(false);
         showPass(false);
 
-        dealPile.reset();
-        dealPile.deck.show();
-        playerSlots.forEach(p => p.reset());
+        DealPile.reset();
+        DealPile.deck.show();
+        Players.slots.forEach(p => p.reset());
+        History.slots.forEach(h => h.clear());
 
-        renderAll({ speed: 2000, callback: () => dealPile.deck.show() });
+        renderAll({ speed: 2000, callback: () => DealPile.deck.show() });
 
         updateStatus("Press Start Game to connect to the server!");
     }
@@ -120,12 +127,12 @@ namespace Thirteen {
         throw Error("Invalid id");
     }
 
-    function renderAll(options?: cards.RenderOptions) {
-        dealPile.deck.render(options);
-        me.hand.render(options);
-        me.queue.render(options);
-        discardPile.render(options);
-        playerSlots.forEach(h => h.hand.render(options));
+    function renderAll(options?: CardsJS.RenderOptions) {
+        DealPile.deck.render(options);
+        Players.self.hand.render(options);
+        Players.self.queue.render(options);
+        History.slots.forEach(h => h.render(options));
+        Players.slots.forEach(h => h.hand.render(options));
     }
 
     const playButton = document.querySelector<HTMLElement>("#play")!;
@@ -144,6 +151,18 @@ namespace Thirteen {
         document.querySelector<HTMLElement>(".status .text")!.innerText = msg;
     }
 
+    Players.self.hand.click(card => {
+        Players.self.queue.addCards(card);
+        Players.self.queue.render();
+        Players.self.hand.render();
+    });
+
+    Players.self.queue.click(card => {
+        Players.self.hand.addCards(card);
+        Players.self.hand.render();
+        Players.self.queue.render();
+    });
+
     passButton.onclick = () => {
         if (connection) {
             connection.send({ type: "PASS" });
@@ -152,21 +171,9 @@ namespace Thirteen {
 
     playButton.onclick = () => {
         if (connection) {
-            connection.send({ type: "PLAY", card_ids: me.queue.array.map(c => c.id) });
+            connection.send({ type: "PLAY", card_ids: Players.self.queue.array.map(c => c.id) });
         }
     };
-
-    me.hand.click(card => {
-        me.queue.addCards(card);
-        me.queue.render();
-        me.hand.render();
-    });
-
-    me.queue.click(card => {
-        me.hand.addCards(card);
-        me.hand.render();
-        me.queue.render();
-    });
 
     window.onresize = utils.debounce(() => renderAll({ speed: 0 }), 500);
     reset();
@@ -187,10 +194,10 @@ namespace Thirteen {
         },
         onReady(event: ThirteenAPI.ReadyEvent) {
             playerIDs = utils.rotate(event.player_ids.slice(0), connection!.id);
-            dealPile.deck.deal(event.cards_per_player, playerSlots.slice(0, playerIDs.length).map(s => s.hand), 75, () => {
-                transmuteCards(event.your_cards, me.hand.array);
-                me.hand.face(true);
-                dealPile.deck.hide();
+            DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, playerIDs.length).map(s => s.hand), 50, () => {
+                transmuteCards(event.your_cards, Players.self.hand.array);
+                Players.self.hand.face(true);
+                DealPile.deck.hide();
                 renderAll();
             });
         },
@@ -203,22 +210,26 @@ namespace Thirteen {
         onPlay(event: ThirteenAPI.PlayEvent) {
             if (!connection) return;
 
-            dealPile.deck.addCards(...discardPile.array);
-            discardPile.clear();
-
             let cards: Card[];
 
             console.log("why", event.player_id);
 
             if (event.player_id == connection.id) {
-                cards = me.queue.array.splice(0, me.queue.array.length);
+                cards = Players.self.queue.array.splice(0, Players.self.queue.array.length);
             } else {
-                cards = playerSlots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
+                cards = Players.slots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
                 transmuteCards(event.card_ids, cards);
             }
 
-            discardPile.addCards(...cards);
-            renderAll({speed: 300});
+            DealPile.deck.addCards(...History.slots[History.slots.length - 1].array.splice(0));
+
+            for (let i = History.slots.length - 1; i > 0; i--) {
+                History.slots[i].addCards(...History.slots[i - 1].array.splice(0));
+            }
+
+            History.slots[0].addCards(...cards);
+
+            renderAll({ speed: 300 });
         },
         onSuccess(event: ThirteenAPI.SuccessEvent) {
             if (event.message == "PLAY") {
@@ -228,12 +239,12 @@ namespace Thirteen {
             }
         },
         onTurnChange(event: ThirteenAPI.TurnChangeEvent) {
-            playerSlots.forEach(c => c.showTag(false));
-            playerSlots[asDisplayID(event.player_id)].showTag(true);
+            Players.slots.forEach(c => c.showTag(false));
+            Players.slots[asDisplayID(event.player_id)].showTag(true);
 
             if (event.player_id == this.id) {
                 showPlay(true);
-                showPass(!event.must_play);
+                showPass(!event.new_pattern);
 
                 if (event.first_turn) {
                     updateStatus("You got the first turn!");
@@ -243,6 +254,13 @@ namespace Thirteen {
             } else {
                 showPlay(false);
                 showPass(false);
+            }
+
+            if (event.new_pattern) {
+                History.slots.forEach(p => {
+                    DealPile.deck.addCards(...p.array.splice(0));
+                });
+                renderAll();
             }
         },
         onEnd(event: ThirteenAPI.EndEvent) {
@@ -258,8 +276,8 @@ namespace Thirteen {
 namespace Header {
     export let connectBtn = document.querySelector<HTMLElement>("#connect")!;
     connectBtn.onclick = () => {
-        if (connectBtn.innerText == "Connect" && !Thirteen.connection) {
-            Thirteen.connection = new ThirteenAPI.Client("ws://gnarbot.xyz/thirteen", Thirteen.handler);
+        if (connectBtn.innerText == "Connect" && !Thirteen.connection) { // ws://gnarbot.xyz/thirteen // 127.0.0.1:2794
+            Thirteen.connection = new ThirteenAPI.Client("ws://127.0.0.1:2794", Thirteen.handler);
             connectBtn.innerText = "Disconnect";
         } else if (Thirteen.connection) {
             Thirteen.connection.disconnect();

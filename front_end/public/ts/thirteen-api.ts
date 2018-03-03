@@ -27,7 +27,7 @@ namespace ThirteenAPI {
         type: "TURN_CHANGE"
         player_id: number,
         first_turn: boolean,
-        must_play: boolean
+        new_pattern: boolean
     }
     export interface SuccessEvent {
         type: "SUCCESS",

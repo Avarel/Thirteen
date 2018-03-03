@@ -148,10 +148,10 @@ impl Instance {
 			);
 		}
 
-		self.broadcast(&DataOut::TURN_CHANGE{
+		self.broadcast(&DataOut::TURN_CHANGE {
 			player_id: game.current_player().id,
 			first_turn: true,
-			must_play: true,
+			new_pattern: true,
 		});
 	}
 
@@ -164,23 +164,11 @@ impl Instance {
 					Ok(()) => {
 						self.send_out(client_id, &DataOut::SUCCESS { message: String::from("PASS") });
 
-						if game.is_new_pattern() {
-							self.broadcast(&DataOut::PLAY {
-								player_id: client_id,
-								card_ids: Vec::new(),
-							});
-							self.broadcast(&DataOut::TURN_CHANGE{
-								player_id: game.current_player().id,
-								first_turn: false,
-								must_play: true,
-							});
-						} else {
-							self.broadcast(&DataOut::TURN_CHANGE{
-								player_id: game.current_player().id,
-								first_turn: false,
-								must_play: false,
-							});
-						}
+						self.broadcast(&DataOut::TURN_CHANGE{
+							player_id: game.current_player().id,
+							first_turn: false,
+							new_pattern: game.is_new_pattern(),
+						});
 					}
 					Err(error) => {
 						self.send_out(
@@ -234,7 +222,7 @@ impl Instance {
 							self.broadcast(&DataOut::TURN_CHANGE {
 								player_id: game.current_player().id,
 								first_turn: false,
-								must_play: false,
+								new_pattern: false,
 							});
 						}
 					}
@@ -381,7 +369,7 @@ pub enum DataOut {
 	TURN_CHANGE {
 		player_id: usize,
 		first_turn: bool,
-		must_play: bool,
+		new_pattern: bool,
 	},
 	STATUS {
 		message: String,

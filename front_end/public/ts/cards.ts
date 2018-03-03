@@ -1,4 +1,4 @@
-namespace cards {
+namespace CardsJS {
     const opt = {
         cardSize: { width: 69, height: 94, padding: 18 },
         animationSpeed: 150,
@@ -42,18 +42,6 @@ namespace cards {
         return all;
     }
 
-    export function shuffle(deck: Container): void {
-        let i = deck.array.length;
-        if (i == 0) return;
-        while (--i) {
-            let j = Math.floor(Math.random() * (i + 1));
-            let tempi = deck.array[i];
-            let tempj = deck.array[j];
-            deck.array[i] = tempj;
-            deck.array[j] = tempi;
-        }
-    }
-
     export enum Suit {
         Spades,
         Clubs,
@@ -78,7 +66,7 @@ namespace cards {
             this.element.style.cursor = "pointer";
             this.element.onclick = mouseEvent;
             data.set(this.element, this);
-            table.appendChild(this.element); 
+            table.appendChild(this.element);
             this.face(false);
         }
 
@@ -204,23 +192,60 @@ namespace cards {
         }
     }
 
+    type AnchorArgument = {
+            left: number
+        } | {
+            right: number
+        } | {
+            top: number
+        } | {
+            bottom: number
+        } | {
+            cx: number,
+        } | {
+            cy: number,
+        } | {
+            cx: number,
+            cy: number,
+        } | {
+            left: number,
+            top: number,
+        } | {
+            left: number,
+            bottom: number,
+        } | {
+            right: number,
+            top: number,
+        } | {
+            right: number,
+            bottom: number,
+        }
+
     export class Anchor {
         left?: number;
         right?: number;
         top?: number;
         bottom?: number;
+        cx?: number;
+        cy?: number;
 
-        constructor({ left, right, top, bottom }: { left?: number, right?: number, top?: number, bottom?: number } = {}) {
-            if (left !== undefined && right !== undefined) {
-                throw new Error('Can not have left and right prop at the same time.');
-            } else if (top !== undefined && right !== undefined) {
-                throw new Error('Can not have top and bottom prop at the same time.');
+        constructor(argument: AnchorArgument = { cx: 0, cy: 0 }) {
+            if ((argument as { left: number }).left !== undefined) {
+                this.left = (argument as { left: number }).left;
+            } else if ((argument as { right: number }).right !== undefined) {
+                this.right = (argument as { right: number }).right;
             }
-
-            this.left = left;
-            this.right = right;
-            this.top = top;
-            this.bottom = bottom;
+            if ((argument as { top: number }).top !== undefined) {
+                this.top = (argument as { top: number }).top;
+            } else if ((argument as { bottom: number }).bottom !== undefined) {
+                this.bottom = (argument as { bottom: number }).bottom;
+            }
+            if ((argument as { cx: number }).cx !== undefined) {
+                this.cx = (argument as { cx: number }).cx;
+            }
+            if ((argument as { cy: number }).cy !== undefined) {
+                this.cy = (argument as { cy: number }).cy;
+            }
         }
 
         get x(): number {
@@ -230,7 +255,7 @@ namespace cards {
             if (this.right !== undefined) {
                 return table.clientWidth - this.right;
             }
-            return table.clientWidth / 2;
+            return table.clientWidth / 2 + (this.cx || 0);
         }
 
         set x(xPos) {
@@ -244,7 +269,7 @@ namespace cards {
             if (this.bottom !== undefined) {
                 return table.clientHeight - this.bottom;
             }
-            return table.clientHeight / 2;
+            return table.clientHeight / 2 + (this.cy || 0);
         }
 
         set y(yPos) {
@@ -257,6 +282,7 @@ namespace cards {
         readonly angle?: number;
         readonly faceUp?: boolean;
         readonly hidden?: boolean;
+        readonly zIndex?: number;
     }
 
     export interface RenderOptions {
@@ -265,6 +291,7 @@ namespace cards {
     }
 
     export abstract class Container {
+        zIndex: number;
         array: Card[];
         position: Anchor;
         angle: number;
@@ -273,12 +300,13 @@ namespace cards {
 
         clickHandler?: { func: (card: Card) => void, context?: any };
 
-        constructor({ position, angle, faceUp, hidden }: ContainerOptions = {}) {
+        constructor({ position, angle, faceUp, hidden, zIndex }: ContainerOptions = {}) {
             this.array = [];
             this.position = position || new Anchor();
             this.angle = angle || 0;
             this.faceUp = faceUp;
             this.hidden = hidden;
+            this.zIndex = zIndex || 0;
         }
 
         abstract calcPosition(): void;
@@ -303,6 +331,18 @@ namespace cards {
                 return compare;
             });
             this.array = zip.map(([_, c]) => c);
+        }
+
+        shuffle(): void {
+            let i = this.array.length;
+            if (i == 0) return;
+            while (--i) {
+                let j = Math.floor(Math.random() * (i + 1));
+                let tempi = this.array[i];
+                let tempj = this.array[j];
+                this.array[i] = tempj;
+                this.array[j] = tempi;
+            }
         }
 
         draw(n: number, random?: boolean): Card[] {
@@ -357,7 +397,7 @@ namespace cards {
             speed = (speed || opt.animationSpeed);
             this.calcPosition();
 
-            let zIndexCounter = 1;
+            let zIndexCounter = this.zIndex * 52;
 
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
@@ -431,7 +471,7 @@ namespace cards {
             return 'Deck';
         }
 
-        deal(count: number, hands: Container[], speed: number, callback?: () => void) {
+        deal(count: number, hands: Container[], speed: number, callback?: () => void): void {
             let me = this;
             let i = 0;
             let totalCount = count * hands.length;

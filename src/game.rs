@@ -303,6 +303,8 @@ impl<'game> PlayerHandle<'game> {
             return Err(PlayError::BadPlay);
         }
 
+        self.game.pass_count = 0;
+
         self.remove_cards(&cards);
 
         Ok(self.cards().len() == 0)

@@ -14,7 +14,7 @@ namespace utils {
     
             clearTimeout(timer);
     
-            timer = setTimeout(function() {
+            timer = setTimeout(() => {
                 !invokeAsap && fn.apply(ctx, args);
                 timer = undefined;
             }, timeout);
