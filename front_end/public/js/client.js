@@ -247,7 +247,7 @@ var Header;
     Header.connectBtn = document.querySelector("#connect");
     Header.connectBtn.onclick = () => {
         if (Header.connectBtn.innerText == "Connect" && !Thirteen.connection) {
-            Thirteen.connection = new ThirteenAPI.Client("ws://127.0.0.1:2794", Thirteen.handler);
+            Thirteen.connection = new ThirteenAPI.Client("ws://gnarbot.xyz/thirteen/ws", Thirteen.handler);
             Header.connectBtn.innerText = "Disconnect";
         }
         else if (Thirteen.connection) {

@@ -275,7 +275,7 @@ namespace Header {
     export let connectBtn = document.querySelector<HTMLElement>("#connect")!;
     connectBtn.onclick = () => {
         if (connectBtn.innerText == "Connect" && !Thirteen.connection) { // ws://gnarbot.xyz/thirteen // 127.0.0.1:2794
-            Thirteen.connection = new ThirteenAPI.Client("ws://127.0.0.1:2794", Thirteen.handler);
+            Thirteen.connection = new ThirteenAPI.Client("ws://gnarbot.xyz/thirteen/ws", Thirteen.handler);
             connectBtn.innerText = "Disconnect";
         } else if (Thirteen.connection) {
             Thirteen.connection.disconnect();
