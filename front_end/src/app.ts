@@ -6,7 +6,6 @@ import * as path from 'path';
 
 export let app = express();
 
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
@@ -30,4 +29,3 @@ app.use(async (req, res, next) => {
     // const err = new Error('Not Found');
     res.end("Not found!")
 });
-  

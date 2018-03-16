@@ -167,7 +167,7 @@ var Thirteen;
             updateStatus(`${event.size}/${event.goal} connected players!`);
         },
         onReady(event) {
-            Thirteen.playerIDs = utils.rotate(event.player_ids.slice(0), Thirteen.connection.id);
+            Thirteen.playerIDs = utils.rotate(event.player_ids.slice(0), event.player_ids.indexOf(Thirteen.connection.id));
             DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, Thirteen.playerIDs.length).map(s => s.hand), 50, () => {
                 transmuteCards(event.your_cards, Players.self.hand.array);
                 Players.self.hand.face(true);
@@ -185,7 +185,6 @@ var Thirteen;
             if (!Thirteen.connection)
                 return;
             let cards;
-            console.log("why", event.player_id);
             if (event.player_id == Thirteen.connection.id) {
                 cards = Players.self.queue.array.splice(0, Players.self.queue.array.length);
             }

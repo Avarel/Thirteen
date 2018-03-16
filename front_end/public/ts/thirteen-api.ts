@@ -70,7 +70,7 @@ namespace ThirteenAPI {
 
     export class Client {
         readonly ws: WebSocket;
-        waiter: Map<PayloadIn["type"], ((event: PayloadIn) => void)[]> = new Map();
+        waiter?: Map<PayloadIn["type"], ((event: PayloadIn) => void)[]>;
         id!: number;
 
         constructor(address: string, readonly handler: EventHandler) {
@@ -78,7 +78,7 @@ namespace ThirteenAPI {
 
             this.ws = new WebSocket(address, "thirteen-game");
             this.ws.onopen = event => { if (this.handler.onConnect) this.handler.onConnect.call(this, event) };
-            this.ws.onclose = event => { if (this.handler.onDisconnect) this.handler.onDisconnect.call(this,event) };
+            this.ws.onclose = event => { if (this.handler.onDisconnect) this.handler.onDisconnect.call(this, event) };
             this.ws.onmessage = event => this.onReceive(event);
         }
 
@@ -91,10 +91,11 @@ namespace ThirteenAPI {
         }
 
         waitFor<T extends PayloadIn, K extends T["type"]>(type: K, callback: (event: T) => void) {
-            let list = this.waiter.get(type);
+            let waiter = this.waiter ? this.waiter : this.waiter = new Map();
+            let list = waiter.get(type);
             if (!list) {
                 list = [];
-                this.waiter.set(type, list);
+                waiter.set(type, list);
             }
             list.push(callback as (event: PayloadIn) => void);
         }
@@ -107,10 +108,12 @@ namespace ThirteenAPI {
 
             let payload = JSON.parse(event.data) as PayloadIn;
 
-            let callbacks = this.waiter.get(payload.type);
-            if (callbacks) {
-                callbacks.forEach(it => it(payload));
-                this.waiter.delete(payload.type);
+            if (this.waiter) {
+                let callbacks = this.waiter.get(payload.type);
+                if (callbacks) {
+                    callbacks.forEach(it => it(payload));
+                    this.waiter.delete(payload.type);
+                }
             }
 
             switch (payload.type) {

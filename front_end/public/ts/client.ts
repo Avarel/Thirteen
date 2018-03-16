@@ -193,7 +193,7 @@ namespace Thirteen {
             updateStatus(`${event.size}/${event.goal} connected players!`);
         },
         onReady(event: ThirteenAPI.ReadyEvent) {
-            playerIDs = utils.rotate(event.player_ids.slice(0), connection!.id);
+            playerIDs = utils.rotate(event.player_ids.slice(0), event.player_ids.indexOf(connection!.id));
             DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, playerIDs.length).map(s => s.hand), 50, () => {
                 transmuteCards(event.your_cards, Players.self.hand.array);
                 Players.self.hand.face(true);
@@ -211,8 +211,6 @@ namespace Thirteen {
             if (!connection) return;
 
             let cards: Card[];
-
-            console.log("why", event.player_id);
 
             if (event.player_id == connection.id) {
                 cards = Players.self.queue.array.splice(0, Players.self.queue.array.length);
