@@ -6,7 +6,7 @@ var CardsJS;
         animationSpeed: 150,
         table: 'body',
         cardBack: 'red',
-        cardUrl: 'img/cards.png'
+        cardUrl: '/assets/img/cards.png'
     };
     let table = document.querySelector(opt.table);
     let data = new Map();
