@@ -29,21 +29,21 @@ pub fn start_server() {
 }
 
 fn mm_instance(server: &Arc<Server>, game_size: usize) -> Weak<Instance> {
-		if let Some(instance) = server
-			.mm_instances
-			.read()
-			.unwrap()
-			.iter()
-			.find(|i| i.game_size == game_size)
-		{
-			return Arc::downgrade(instance);
-		}
-
-		let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
-		let weak = Arc::downgrade(&instance);
-		server.add_instance(instance);
-		weak
+	if let Some(instance) = server
+		.mm_instances
+		.read()
+		.unwrap()
+		.iter()
+		.find(|i| i.game_size == game_size)
+	{
+		return Arc::downgrade(instance);
 	}
+
+	let instance = Instance::new_arc(Arc::downgrade(&server), GAME_SIZE);
+	let weak = Arc::downgrade(&instance);
+	server.add_instance(instance);
+	weak
+}
 
 pub struct Server {
 	counter: AtomicUsize,
@@ -162,9 +162,14 @@ impl Instance {
 				let mut game = self.model.write().unwrap();
 				match game.player_handle(client_id).try_pass() {
 					Ok(()) => {
-						self.send_out(client_id, &DataOut::SUCCESS { message: String::from("PASS") });
+						self.send_out(
+							client_id,
+							&DataOut::SUCCESS {
+								message: SuccessCode::PASS,
+							},
+						);
 
-						self.broadcast(&DataOut::TURN_CHANGE{
+						self.broadcast(&DataOut::TURN_CHANGE {
 							player_id: game.current_player().id,
 							first_turn: false,
 							new_pattern: game.is_new_pattern(),
@@ -175,13 +180,9 @@ impl Instance {
 							client_id,
 							&DataOut::ERROR {
 								message: match error {
-									PassError::OutOfTurn => String::from("It is not your turn."),
-									PassError::MustPlay => {
-										String::from("You must play a new pattern!")
-									}
-									PassError::MustPlayLowest => String::from(
-										"You must play your lowest card for the first turn.",
-									),
+									PassError::OutOfTurn => ErrorCode::OUT_OF_TURN,
+									PassError::MustPlay => ErrorCode::MUST_START_NEW_PATTERN,
+									PassError::MustPlayLowest => ErrorCode::MUST_PLAY_LOWEST,
 								},
 							},
 						);
@@ -201,7 +202,7 @@ impl Instance {
 						self.send_out(
 							client_id,
 							&DataOut::ERROR {
-								message: String::from("Invalid card IDs."),
+								message: ErrorCode::INVALID_CARD,
 							},
 						);
 					}
@@ -209,7 +210,12 @@ impl Instance {
 
 				match game.player_handle(client_id).try_play(&cards) {
 					Ok(win) => {
-						self.send_out(client_id, &DataOut::SUCCESS { message: String::from("PLAY") });
+						self.send_out(
+							client_id,
+							&DataOut::SUCCESS {
+								message: SuccessCode::PLAY,
+							},
+						);
 						self.broadcast(&DataOut::PLAY {
 							player_id: client_id,
 							card_ids: cards.iter().map(Card::into_id).collect(),
@@ -231,19 +237,13 @@ impl Instance {
 							client_id,
 							&DataOut::ERROR {
 								message: match error {
-									PlayError::OutOfTurn => {
-										String::from("It is not your turn! Wait a bit!")
-									}
-									PlayError::NoCards => String::from("You can't play nothing!"),
-									PlayError::MustPlayLowest => String::from(
-										"You must play your lowest card for the first turn.",
-									),
-									PlayError::ForgedCards => {
-										String::from("Are you trying to cheat?")
-									}
-									PlayError::BadPlay => String::from(
-										"You can not play those cards on this pattern!",
-									),
+									PlayError::OutOfTurn => ErrorCode::OUT_OF_TURN,
+									PlayError::NoCards => ErrorCode::NO_CARDS,
+									PlayError::MustPlayLowest => ErrorCode::MUST_PLAY_LOWEST,
+									PlayError::InvalidCard => ErrorCode::INVALID_CARD,
+									PlayError::InvalidPattern => ErrorCode::INVALID_PATTERN,
+									PlayError::BadPattern => ErrorCode::BAD_PATTERN,
+									PlayError::BadCard => ErrorCode::BAD_CARD
 								},
 							},
 						);
@@ -375,11 +375,31 @@ pub enum DataOut {
 		message: String,
 	},
 	SUCCESS {
-		message: String,
+		message: SuccessCode,
 	},
 	ERROR {
-		message: String,
+		message: ErrorCode
 	},
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SuccessCode {
+	PASS,
+	PLAY
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ErrorCode {
+	OUT_OF_TURN,
+	NO_CARDS,
+	MUST_PLAY_LOWEST,
+	MUST_START_NEW_PATTERN,
+	INVALID_CARD,
+	INVALID_PATTERN,
+	BAD_CARD,
+	BAD_PATTERN
 }
 
 #[derive(Serialize, Deserialize, Debug)]

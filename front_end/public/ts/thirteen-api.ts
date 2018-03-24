@@ -39,7 +39,7 @@ namespace ThirteenAPI {
     }
     export interface ErrorEvent {
         type: "ERROR",
-        message: string
+        message: "OUT_OF_TURN" | "NO_CARDS" | "MUST_PLAY_LOWEST" | "MUST_START_NEW_PATTERN" | "INVALID_CARD" | "INVALID_PATTERN" | "BAD_CARD" | "BAD_PATTERN"
     }
     export type PayloadIn = IdentifyEvent | QueueUpdateEvent | ReadyEvent
         | PlayEvent | EndEvent | SuccessEvent

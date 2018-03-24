@@ -67,23 +67,25 @@ impl fmt::Display for Pattern {
 }
 
 pub enum PlayError {
-    NoCards,        // player tried to play nothing
+    NoCards, // player tried to play nothing
     OutOfTurn,
-    ForgedCards, // player tried to play cards that they don't have
-    BadPlay,     // player tried to play on turn but it didn't work out
-    MustPlayLowest,   // at the start of game, player must play their lowest card
+    InvalidCard,    // player tried to play cards that they don't have
+    InvalidPattern, // pattern is illegal
+    BadCard,        // top card lower than current top card
+    BadPattern,     // wrong pattern compared to the pile
+    MustPlayLowest, // at the start of game, player must play their lowest card
 }
 
 pub enum PassError {
     OutOfTurn,
-    MustPlay,        // the player can not pass this turn
-    MustPlayLowest,  // the player must play on the first turn of the game
+    MustPlay,       // the player can not pass this turn
+    MustPlayLowest, // the player must play on the first turn of the game
 }
 
 pub struct Game {
     started: bool, // has the game started
 
-    new_pattern: bool,     // is it a new round? can you start a new pattern?
+    new_pattern: bool,   // is it a new round? can you start a new pattern?
     pass_count: usize,   // how many people passed
     current_turn: usize, // whose turn is it currently by id
     mandatory_card: Option<Card>,
@@ -140,7 +142,10 @@ impl Game {
             unimplemented!()
         }
 
-        self.players.push(Player { id, cards: Vec::new() });
+        self.players.push(Player {
+            id,
+            cards: Vec::new(),
+        });
     }
 
     pub fn remove_player(&mut self, id: usize) {
@@ -207,19 +212,11 @@ impl Turn {
     pub fn top_card(&self) -> &Card {
         self.stack.last().unwrap()
     }
+}
 
-    pub fn gt(&self, target: &Self) -> bool {
-        match self.pattern {
-            Pattern::Repeat(4) => {
-                target.pattern == Pattern::Repeat(1) && target.top_card().vc_value() == 12
-            }
-            Pattern::SequencePair(n) => {
-                target.pattern == Pattern::Repeat(n - 2) && target.top_card().vc_value() == 12
-            }
-            Pattern::Invalid => false,
-            p => p == target.pattern && self.top_card() > target.top_card(),
-        }
-    }
+pub enum TurnError {
+    BadCard,
+    BadPattern,
 }
 
 #[derive(Debug)]
@@ -230,7 +227,7 @@ pub struct Player {
 
 pub struct PlayerHandle<'game> {
     index: usize,
-    game: &'game mut Game
+    game: &'game mut Game,
 }
 
 // abstraction to make player handling easier
@@ -277,7 +274,7 @@ impl<'game> PlayerHandle<'game> {
         } else if cards.len() == 0 {
             return Err(PlayError::NoCards);
         } else if !self.has(&cards) {
-            return Err(PlayError::ForgedCards);
+            return Err(PlayError::InvalidCard);
         }
 
         let turn: Turn = cards.into();
@@ -291,16 +288,43 @@ impl<'game> PlayerHandle<'game> {
             }
 
             if turn.pattern == Pattern::Invalid {
-                return Err(PlayError::BadPlay);
+                return Err(PlayError::InvalidPattern);
             }
             self.game.history.push(turn);
             self.game.next_turn();
             self.game.new_pattern = false;
-        } else if turn.gt(self.game.history.last().unwrap()) {
-            self.game.history.push(turn);
-            self.game.next_turn();
         } else {
-            return Err(PlayError::BadPlay);
+            let error = {
+                let target = self.game.history.last().unwrap();
+                match turn.pattern {
+                    Pattern::Invalid => Some(TurnError::BadPattern),
+                    Pattern::Repeat(4)
+                        if (target.pattern == Pattern::Repeat(1)
+                            || target.pattern == Pattern::Repeat(2))
+                            && target.top_card().vc_value() == 12 =>
+                    {
+                        None
+                    }
+                    Pattern::SequencePair(n)
+                        if target.pattern == Pattern::Repeat(n - 2)
+                            && target.top_card().vc_value() == 12 =>
+                    {
+                        None
+                    }
+                    p if p != target.pattern => Some(TurnError::BadPattern),
+                    _ if turn.top_card() > target.top_card() => None,
+                    _ => Some(TurnError::BadCard)
+                }
+            };
+
+            match error {
+                Some(TurnError::BadCard) => return Err(PlayError::BadCard),
+                Some(TurnError::BadPattern) => return Err(PlayError::BadPattern),
+                None => {
+                    self.game.history.push(turn);
+                    self.game.next_turn();
+                }
+            }
         }
 
         self.game.pass_count = 0;
@@ -322,8 +346,8 @@ impl<'game> PlayerHandle<'game> {
         if self.game.new_pattern {
             return Err(PassError::MustPlay);
         }
-        
-        if let Some(_) = self.game.mandatory_card { 
+
+        if let Some(_) = self.game.mandatory_card {
             return Err(PassError::MustPlayLowest);
         }
 

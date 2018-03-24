@@ -50,7 +50,7 @@ namespace Thirteen {
                 this.tag = document.querySelectorAll<HTMLElement>('.name-tag')[id];
                 switch (id) {
                     case 0:
-                        this.hand = new Hand({ position: new Anchor({ bottom: 25 }), angle: 0 });
+                        this.hand = new Hand({ position: new Anchor({ bottom: 25 }), angle: 0, zIndex: 5 });
                         break;
                     case 1:
                         this.hand = new Hand({ position: new Anchor({ top: 0 }), angle: 180 });
@@ -92,7 +92,7 @@ namespace Thirteen {
 
         export const self = {
             hand: slots[0].hand,
-            queue: new Hand({ faceUp: true, position: new Anchor({ bottom: 125 }) })
+            queue: new Hand({ faceUp: true, position: new Anchor({ bottom: 100 }) })
         };
     }
 
@@ -205,7 +205,32 @@ namespace Thirteen {
             updateStatus(event.message);
         },
         onError(event: ThirteenAPI.ErrorEvent) {
-            updateStatus(event.message);
+            switch (event.message) {
+                case "INVALID_CARD": 
+                    updateStatus("Invalid cards. (Client sent invalid ids)");
+                    break;
+                case "INVALID_PATTERN":
+                    updateStatus("Your pattern is not valid.");
+                    break;
+                case "BAD_PATTERN":
+                    updateStatus("Your pattern does not match the pile's pattern.");
+                    break;
+                case "BAD_CARD":
+                    updateStatus("Your hand's highest must be higher than the pile's highest card.");
+                    break;
+                case "OUT_OF_TURN":
+                    updateStatus("It's not your turn right now! Wait a bit.");
+                    break;
+                case "MUST_START_NEW_PATTERN":
+                    updateStatus("You must start a new pattern.");
+                    break;
+                case "NO_CARDS":
+                    updateStatus("You can't play nothing.");
+                    break;
+                case "MUST_PLAY_LOWEST":
+                    updateStatus("You must play your lowest card for this turn.");
+                    break;
+            }
         },
         onPlay(event: ThirteenAPI.PlayEvent) {
             if (!connection) return;
@@ -230,10 +255,13 @@ namespace Thirteen {
             renderAll({ speed: 300 });
         },
         onSuccess(event: ThirteenAPI.SuccessEvent) {
-            if (event.message == "PLAY") {
-                updateStatus("You successfully played this round.");
-            } else {
-                updateStatus("You passed for this round.");
+            switch (event.message) {
+                case "PLAY": 
+                    updateStatus("You successfully played this round.");
+                    break;
+                case "PASS":
+                    updateStatus("You passed for this round.");
+                    break;
             }
         },
         onTurnChange(event: ThirteenAPI.TurnChangeEvent) {
@@ -274,8 +302,8 @@ namespace Thirteen {
 namespace Header {
     export let connectBtn = document.querySelector<HTMLElement>("#connect")!;
     connectBtn.onclick = () => {
-        if (connectBtn.innerText == "Connect" && !Thirteen.connection) { // ws://gnarbot.xyz/thirteen // 127.0.0.1:2794
-            Thirteen.connection = new ThirteenAPI.Client("wss://gnarbot.xyz/thirteen/ws", Thirteen.handler);
+        if (connectBtn.innerText == "Connect" && !Thirteen.connection) { // wss://gnarbot.xyz/thirteen/ws // 127.0.0.1:2794
+            Thirteen.connection = new ThirteenAPI.Client("ws://127.0.0.1:2794", Thirteen.handler);
             connectBtn.innerText = "Disconnect";
         } else if (Thirteen.connection) {
             Thirteen.connection.disconnect();

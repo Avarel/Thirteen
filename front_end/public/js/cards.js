@@ -2,7 +2,7 @@
 var CardsJS;
 (function (CardsJS) {
     const opt = {
-        cardSize: { width: 69, height: 94, padding: 18 },
+        cardSize: { width: 80, height: 120, padding: 20 },
         animationSpeed: 150,
         table: 'body',
         cardBack: 'red',
