@@ -4,16 +4,16 @@ namespace utils {
             ctx = invokeAsap;
             invokeAsap = false;
         }
-    
+
         let timer: any;
-        return function(this: any) {
+        return function (this: any) {
             let args = arguments;
             ctx = ctx || this;
-    
+
             invokeAsap && !timer && fn.apply(ctx, args);
-    
+
             clearTimeout(timer);
-    
+
             timer = setTimeout(() => {
                 !invokeAsap && fn.apply(ctx, args);
                 timer = undefined;
@@ -33,7 +33,7 @@ namespace utils {
 
     function lazy<T>(fn: () => T): () => T {
         let value: T | undefined;
-        return function() {
+        return function () {
             return value || (value = fn())
         }
     }

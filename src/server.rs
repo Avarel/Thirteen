@@ -5,8 +5,12 @@ pub const PROTOCOL: &'static str = "thirteen-game";
 
 use game;
 use linked_hash_map::LinkedHashMap;
-use std::{collections::{HashMap, VecDeque},
-          sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, {Arc, RwLock, Weak}}};
+use std::{
+	collections::{HashMap, VecDeque},
+	sync::{
+		atomic::{AtomicBool, AtomicUsize, Ordering}, {Arc, RwLock, Weak},
+	},
+};
 
 pub fn start_server() {
 	println!("Starting server.");
@@ -68,7 +72,8 @@ impl Server {
 			.read()
 			.unwrap()
 			.iter()
-			.find(|i| i.game_size == game_size) {
+			.find(|i| i.game_size == game_size)
+		{
 			return Arc::downgrade(instance);
 		}
 
@@ -133,8 +138,14 @@ impl Instance {
 
 		let mut game = self.model.write().unwrap();
 		game.start();
-		
-		let players: Vec<PlayerData> = game.players().iter().map(|p| PlayerData { id: p.id, name: p.name.clone() }).collect();
+
+		let players: Vec<PlayerData> = game.players()
+			.iter()
+			.map(|p| PlayerData {
+				id: p.id,
+				name: p.name.clone(),
+			})
+			.collect();
 
 		for p in &players {
 			use cards::Card;
@@ -293,7 +304,12 @@ impl Instance {
 		self.senders.read().unwrap().len()
 	}
 
-	pub fn add_client(&self, sender: Weak<ws::Sender>, client_id: usize, name: String) -> Result<(), ws::Error> {
+	pub fn add_client(
+		&self,
+		sender: Weak<ws::Sender>,
+		client_id: usize,
+		name: String,
+	) -> Result<(), ws::Error> {
 		if self.running() {
 			return Err(ws::Error::new(
 				ws::ErrorKind::Capacity,
@@ -346,12 +362,11 @@ impl Instance {
 	}
 }
 
-
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlayerData {
 	pub id: usize,
-	name: String
+	name: String,
 }
 
 #[allow(non_camel_case_types)]
@@ -416,10 +431,7 @@ pub enum ErrorCode {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum DataIn {
-	QUEUE {
-		name: String,
-		game_size: usize
-	},
+	QUEUE { name: String, game_size: usize },
 	PASS {},
 	PLAY { card_ids: Vec<u8> },
 }
@@ -435,31 +447,31 @@ struct ClientConnection {
 }
 
 impl ws::Handler for ClientConnection {
-    // mm_instance(&server, GAME_SIZE)
-
 	fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
 		match msg {
 			ws::Message::Text(buf) => match serde_json::from_str::<DataIn>(&buf) {
 				Ok(DataIn::QUEUE { name, game_size }) => {
-					let mm_instance = Server::find_instance(&self.server.upgrade().unwrap(), game_size);
+					let mm_instance =
+						Server::find_instance(&self.server.upgrade().unwrap(), game_size);
 
-					mm_instance
-						.upgrade()
-						.unwrap()
-						.add_client(Arc::downgrade(&self.out), self.client_id, name)?;
+					mm_instance.upgrade().unwrap().add_client(
+						Arc::downgrade(&self.out),
+						self.client_id,
+						name,
+					)?;
 
 					self.instance = Some(mm_instance);
 
 					Ok(())
 				}
 				Ok(data) => {
-					let instance = match self.instance {
+					let instance = match &self.instance {
 						None => return Ok(()),
-						Some(ref i) => i.upgrade().unwrap()
+						Some(i) => i.upgrade().unwrap(),
 					};
 
 					if !instance.running() {
-						return Ok(())
+						return Ok(());
 					}
 
 					instance.process(self.client_id, data);
@@ -480,7 +492,8 @@ impl ws::Handler for ClientConnection {
 	fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
 		match self.instance {
 			None => return,
-			Some(ref i) => i.upgrade().map(|game| game.remove_client(self.client_id, false))
+			Some(ref i) => i.upgrade()
+				.map(|game| game.remove_client(self.client_id, false)),
 		};
 
 		match code {

@@ -1,5 +1,5 @@
-use std::fmt;
 use cards::Card;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Pattern {
@@ -298,18 +298,20 @@ impl<'game> PlayerHandle<'game> {
         } else {
             {
                 let target = self.game.history.last().unwrap();
-                
+
                 match turn.pattern {
                     Pattern::Invalid => return Err(PlayError::InvalidPattern),
                     Pattern::Repeat(4)
                         if (target.pattern == Pattern::Repeat(1)
                             || target.pattern == Pattern::Repeat(2))
-                            && target.top_card().vc_value() == 12 => { /* do nothing */ }
+                            && target.top_card().vc_value() == 12 =>
+                    { /* do nothing */ }
                     Pattern::SequencePair(n)
                         if target.pattern == Pattern::Repeat(n - 2)
-                            && target.top_card().vc_value() == 12 => { /* do nothing */ }
+                            && target.top_card().vc_value() == 12 =>
+                    { /* do nothing */ }
                     p if p != target.pattern => return Err(PlayError::BadPattern),
-                    _ if turn.top_card() > target.top_card() => { /* do nothing */ },
+                    _ if turn.top_card() > target.top_card() => { /* do nothing */ }
                     _ => return Err(PlayError::BadCard),
                 };
             }

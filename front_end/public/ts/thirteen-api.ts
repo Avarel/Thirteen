@@ -11,7 +11,7 @@ namespace ThirteenAPI {
     export interface ReadyEvent {
         type: 'READY',
         your_cards: number[],
-        players: {id: number, name: string}[],
+        players: { id: number, name: string }[],
         cards_per_player: number
     }
     export interface EndEvent {

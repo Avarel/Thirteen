@@ -40,7 +40,7 @@ namespace Thirteen {
     }
 
     namespace Players {
-        export let players: {id: number, name: string}[] = [];
+        export let players: { id: number, name: string }[] = [];
 
         class PlayerDisplay {
             readonly tag: HTMLElement;
@@ -194,9 +194,9 @@ namespace Thirteen {
             }
 
             this.send({
-               type: 'QUEUE',
-               name: name,
-               game_size: gameSize
+                type: 'QUEUE',
+                name: name,
+                game_size: gameSize
             });
         },
         onDisconnect(event: Event) {
@@ -215,7 +215,7 @@ namespace Thirteen {
             }
             DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, Players.players.length).map(s => s.hand), 50, () => {
                 transmuteCards(event.your_cards, Players.self.hand.array);
-                
+
                 Players.self.hand.face(true);
                 DealPile.deck.display(false);
                 renderAll();
@@ -226,7 +226,7 @@ namespace Thirteen {
         },
         onError(event: ThirteenAPI.ErrorEvent) {
             switch (event.message) {
-                case 'INVALID_CARD': 
+                case 'INVALID_CARD':
                     updateStatus('Invalid cards. (Client sent invalid ids)');
                     break;
                 case 'INVALID_PATTERN':
@@ -276,7 +276,7 @@ namespace Thirteen {
         },
         onSuccess(event: ThirteenAPI.SuccessEvent) {
             switch (event.message) {
-                case 'PLAY': 
+                case 'PLAY':
                     updateStatus('You successfully played this round.');
                     break;
                 case 'PASS':
@@ -298,7 +298,7 @@ namespace Thirteen {
                     updateStatus('It is your turn!');
                 }
             } else {
-                
+
 
                 showPlay(false);
                 showPass(false);

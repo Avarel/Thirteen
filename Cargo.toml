@@ -2,6 +2,7 @@
 name = "thirteen_server"
 version = "0.1.0"
 authors = ["Avarel <avarelpm@gmail.com>"]
+publish = false
 
 [dependencies]
 rand = "0.4.2"
