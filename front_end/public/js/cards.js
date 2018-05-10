@@ -52,13 +52,13 @@ var CardsJS;
             this.id = id;
             this.faceUp = false;
             this.hidden = false;
-            this.element = document.createElement("div");
-            this.element.className = "card";
+            this.element = document.createElement('div');
+            this.element.className = 'card';
             this.element.style.width = `${opt.cardSize.width}px`;
             this.element.style.height = `${opt.cardSize.height}px`;
             this.element.style.backgroundImage = `url(${opt.cardUrl})`;
-            this.element.style.position = "absolute";
-            this.element.style.cursor = "pointer";
+            this.element.style.position = 'absolute';
+            this.element.style.cursor = 'pointer';
             this.element.onclick = mouseEvent;
             data.set(this.element, this);
             table.appendChild(this.element);
@@ -172,13 +172,15 @@ var CardsJS;
                 this.element.style.backgroundPosition = '0px ' + y + 'px';
             }
         }
-        show() {
-            this.hidden = false;
-            this.element.style.display = "block";
-        }
-        hide() {
-            this.hidden = true;
-            this.element.style.display = "none";
+        display(show) {
+            if (show) {
+                this.hidden = false;
+                this.element.style.display = 'block';
+            }
+            else {
+                this.hidden = true;
+                this.element.style.display = 'none';
+            }
         }
     }
     CardsJS.Card = Card;
@@ -234,8 +236,8 @@ var CardsJS;
             this.array = [];
             this.position = position || new Anchor();
             this.angle = angle || 0;
-            this.faceUp = faceUp;
-            this.hidden = hidden;
+            this.faceUp = faceUp || false;
+            this.hidden = hidden || false;
             this.zIndex = zIndex || 0;
         }
         clear() {
@@ -326,12 +328,7 @@ var CardsJS;
                 for (let i = 0; i < this.array.length; i++) {
                     this.array[i].face(this.faceUp);
                 }
-                if (this.hidden) {
-                    this.hide();
-                }
-                else {
-                    this.show();
-                }
+                this.display(!this.hidden);
             };
             if (speed == 0) {
                 update();
@@ -343,16 +340,10 @@ var CardsJS;
                 setTimeout(callback, speed);
             }
         }
-        show() {
-            this.hidden = false;
+        display(show) {
+            this.hidden = !show;
             for (let card of this.array) {
-                card.show();
-            }
-        }
-        hide() {
-            this.hidden = true;
-            for (let card of this.array) {
-                card.hide();
+                card.display(show);
             }
         }
         toString() {

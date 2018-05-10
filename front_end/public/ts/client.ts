@@ -1,4 +1,4 @@
-import { render } from "../../node_modules/@types/node-sass/index";
+import { render } from '../../node_modules/@types/node-sass/index';
 
 CardsJS.init({ table: '.game' });
 
@@ -10,11 +10,9 @@ namespace Thirteen {
     import Hand = CardsJS.Hand;
     import Anchor = CardsJS.Anchor;
 
-    export let playerIDs: number[] = [];
-
     function transmuteCards(ids: number[], cards: Card[]): Card[] {
         if (ids.length != cards.length) {
-            throw new Error("cards and ids are not the same length");
+            throw new Error('cards and ids are not the same length');
         }
         for (let i = 0; i < cards.length; i++) {
             cards[i].id = ids[i];
@@ -22,7 +20,7 @@ namespace Thirteen {
         return cards;
     }
 
-    namespace DealPile {
+    export namespace DealPile {
         const cards: Card[] = [];
         export const deck: Deck = new Deck();
 
@@ -42,7 +40,9 @@ namespace Thirteen {
     }
 
     namespace Players {
-        class Slot {
+        export let players: {id: number, name: string}[] = [];
+
+        class PlayerDisplay {
             readonly tag: HTMLElement;
             readonly hand: Hand;
 
@@ -85,9 +85,18 @@ namespace Thirteen {
             }
         }
 
-        export const slots: Slot[] = [];
+        export function ofID(id: number): PlayerDisplay {
+            for (let i = 0; i < players.length; i++) {
+                if (players[i].id == id) {
+                    return slots[i]
+                }
+            }
+            throw Error('Invalid id');
+        }
+
+        export const slots: PlayerDisplay[] = [];
         for (let i = 0; i < 4; i++) {
-            slots.push(new Slot(i));
+            slots.push(new PlayerDisplay(i));
         }
 
         export const self = {
@@ -109,22 +118,14 @@ namespace Thirteen {
         showPass(false);
 
         DealPile.reset();
-        DealPile.deck.show();
+        DealPile.deck.display(true);
         Players.slots.forEach(p => p.reset());
         History.slots.forEach(h => h.clear());
+        Players.players = []
 
-        renderAll({ speed: 2000, callback: () => DealPile.deck.show() });
+        renderAll({ speed: 2000, callback: () => DealPile.deck.display(true) });
 
-        updateStatus("Press Start Game to connect to the server!");
-    }
-
-    export function asDisplayID(targetID: number): number {
-        for (let i = 0; i < playerIDs.length; i++) {
-            if (playerIDs[i] == targetID) {
-                return i;
-            }
-        }
-        throw Error("Invalid id");
+        updateStatus('Press Start Game to connect to the server!');
     }
 
     function renderAll(options?: CardsJS.RenderOptions) {
@@ -135,11 +136,11 @@ namespace Thirteen {
         Players.slots.forEach(h => h.hand.render(options));
     }
 
-    const playButton = document.querySelector<HTMLElement>("#play")!;
-    const passButton = document.querySelector<HTMLElement>("#pass")!;
+    const playButton = document.querySelector<HTMLElement>('#play')!;
+    const passButton = document.querySelector<HTMLElement>('#pass')!;
 
     export function showPlay(on: boolean): void {
-        console.log("Show play ", on);
+        console.log('Show play ', on);
         playButton.style.display = on ? 'block' : 'none';
     }
 
@@ -148,7 +149,7 @@ namespace Thirteen {
     }
 
     export function updateStatus(msg: string): void {
-        document.querySelector<HTMLElement>(".status .text")!.innerText = msg;
+        document.querySelector<HTMLElement>('.status .text')!.innerText = msg;
     }
 
     Players.self.hand.click(card => {
@@ -165,13 +166,13 @@ namespace Thirteen {
 
     passButton.onclick = () => {
         if (connection) {
-            connection.send({ type: "PASS" });
+            connection.send({ type: 'PASS' });
         }
     };
 
     playButton.onclick = () => {
         if (connection) {
-            connection.send({ type: "PLAY", card_ids: Players.self.queue.array.map(c => c.id) });
+            connection.send({ type: 'PLAY', card_ids: Players.self.queue.array.map(c => c.id) });
         }
     };
 
@@ -180,12 +181,27 @@ namespace Thirteen {
 
     export let handler: ThirteenAPI.EventHandler = {
         onConnect(event: Event) {
-            console.log("Connected to server.");
-            Header.connectBtn.innerText = "Disconnect";
+            console.log('Connected to server.');
+            Header.connectBtn.innerText = 'Disconnect';
+        },
+        onIdentify(event: ThirteenAPI.IdentifyEvent) {
+            let name = prompt("Name", `Username`) || "Too Lazy";
+            let gameSize: number | undefined;
+
+            while (gameSize == undefined) {
+                let size = parseInt(prompt("Players", '4') || '4')
+                if (size != NaN) gameSize = size
+            }
+
+            this.send({
+               type: 'QUEUE',
+               name: name,
+               game_size: gameSize
+            });
         },
         onDisconnect(event: Event) {
-            console.log("Disconnected from server.");
-            Header.connectBtn.innerText = "Connect";
+            console.log('Disconnected from server.');
+            Header.connectBtn.innerText = 'Connect';
             connection = undefined;
             reset();
         },
@@ -193,11 +209,15 @@ namespace Thirteen {
             updateStatus(`${event.size}/${event.goal} connected players!`);
         },
         onReady(event: ThirteenAPI.ReadyEvent) {
-            playerIDs = utils.rotate(event.player_ids.slice(0), event.player_ids.indexOf(connection!.id));
-            DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, playerIDs.length).map(s => s.hand), 50, () => {
+            Players.players = utils.rotate(event.players.slice(0), event.players.map(it => it.id).indexOf(connection!.id));
+            for (let p of Players.players) {
+                Players.ofID(p.id).name = p.name
+            }
+            DealPile.deck.deal(event.cards_per_player, Players.slots.slice(0, Players.players.length).map(s => s.hand), 50, () => {
                 transmuteCards(event.your_cards, Players.self.hand.array);
+                
                 Players.self.hand.face(true);
-                DealPile.deck.hide();
+                DealPile.deck.display(false);
                 renderAll();
             });
         },
@@ -206,29 +226,29 @@ namespace Thirteen {
         },
         onError(event: ThirteenAPI.ErrorEvent) {
             switch (event.message) {
-                case "INVALID_CARD": 
-                    updateStatus("Invalid cards. (Client sent invalid ids)");
+                case 'INVALID_CARD': 
+                    updateStatus('Invalid cards. (Client sent invalid ids)');
                     break;
-                case "INVALID_PATTERN":
-                    updateStatus("Your pattern is not valid.");
+                case 'INVALID_PATTERN':
+                    updateStatus('Your pattern is not valid.');
                     break;
-                case "BAD_PATTERN":
+                case 'BAD_PATTERN':
                     updateStatus("Your pattern does not match the pile's pattern.");
                     break;
-                case "BAD_CARD":
+                case 'BAD_CARD':
                     updateStatus("Your hand's highest must be higher than the pile's highest card.");
                     break;
-                case "OUT_OF_TURN":
+                case 'OUT_OF_TURN':
                     updateStatus("It's not your turn right now! Wait a bit.");
                     break;
-                case "MUST_START_NEW_PATTERN":
-                    updateStatus("You must start a new pattern.");
+                case 'MUST_START_NEW_PATTERN':
+                    updateStatus('You must start a new pattern.');
                     break;
-                case "NO_CARDS":
+                case 'NO_CARDS':
                     updateStatus("You can't play nothing.");
                     break;
-                case "MUST_PLAY_LOWEST":
-                    updateStatus("You must play your lowest card for this turn.");
+                case 'MUST_PLAY_LOWEST':
+                    updateStatus('You must play your lowest card for this turn.');
                     break;
             }
         },
@@ -240,7 +260,7 @@ namespace Thirteen {
             if (event.player_id == connection.id) {
                 cards = Players.self.queue.array.splice(0, Players.self.queue.array.length);
             } else {
-                cards = Players.slots[asDisplayID(event.player_id)].hand.draw(event.card_ids.length, true);
+                cards = Players.ofID(event.player_id).hand.draw(event.card_ids.length, true);
                 transmuteCards(event.card_ids, cards);
             }
 
@@ -256,28 +276,30 @@ namespace Thirteen {
         },
         onSuccess(event: ThirteenAPI.SuccessEvent) {
             switch (event.message) {
-                case "PLAY": 
-                    updateStatus("You successfully played this round.");
+                case 'PLAY': 
+                    updateStatus('You successfully played this round.');
                     break;
-                case "PASS":
-                    updateStatus("You passed for this round.");
+                case 'PASS':
+                    updateStatus('You passed for this round.');
                     break;
             }
         },
         onTurnChange(event: ThirteenAPI.TurnChangeEvent) {
             Players.slots.forEach(c => c.showTag(false));
-            Players.slots[asDisplayID(event.player_id)].showTag(true);
+            Players.ofID(event.player_id).showTag(true);
 
             if (event.player_id == this.id) {
                 showPlay(true);
                 showPass(!event.new_pattern);
 
                 if (event.first_turn) {
-                    updateStatus("You got the first turn!");
+                    updateStatus('You got the first turn!');
                 } else {
-                    updateStatus("It is your turn!");
+                    updateStatus('It is your turn!');
                 }
             } else {
+                
+
                 showPlay(false);
                 showPass(false);
             }
@@ -291,23 +313,23 @@ namespace Thirteen {
         },
         onEnd(event: ThirteenAPI.EndEvent) {
             if (event.victor_id == this.id) {
-                updateStatus("You won!");
+                updateStatus('You won!');
             } else {
-                updateStatus("You lost!");
+                updateStatus('You lost!');
             }
             setTimeout(() => this.disconnect(), 5000);
         }
     };
 }
 namespace Header {
-    export let connectBtn = document.querySelector<HTMLElement>("#connect")!;
+    export let connectBtn = document.querySelector<HTMLElement>('#connect')!;
     connectBtn.onclick = () => {
-        if (connectBtn.innerText == "Connect" && !Thirteen.connection) { // wss://gnarbot.xyz/thirteen/ws // 127.0.0.1:2794
-            Thirteen.connection = new ThirteenAPI.Client("ws://127.0.0.1:2794", Thirteen.handler);
-            connectBtn.innerText = "Disconnect";
+        if (connectBtn.innerText == 'Connect' && !Thirteen.connection) { // wss://gnarbot.xyz/thirteen/ws // 127.0.0.1:2794
+            Thirteen.connection = new ThirteenAPI.Client('ws://127.0.0.1:2794', Thirteen.handler);
+            connectBtn.innerText = 'Disconnect';
         } else if (Thirteen.connection) {
             Thirteen.connection.disconnect();
-            connectBtn.innerText = "Connect";
+            connectBtn.innerText = 'Connect';
         }
     };
 }

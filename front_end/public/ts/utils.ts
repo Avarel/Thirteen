@@ -30,5 +30,12 @@ namespace utils {
 
         return array
     }
+
+    function lazy<T>(fn: () => T): () => T {
+        let value: T | undefined;
+        return function() {
+            return value || (value = fn())
+        }
+    }
 }
 

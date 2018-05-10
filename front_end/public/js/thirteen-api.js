@@ -4,8 +4,8 @@ var ThirteenAPI;
     class Client {
         constructor(address, handler) {
             this.handler = handler;
-            console.log("Connecting to server...");
-            this.ws = new WebSocket(address, "thirteen-game");
+            console.log('Connecting to server...');
+            this.ws = new WebSocket(address, 'thirteen-game');
             this.ws.onopen = event => { if (this.handler.onConnect)
                 this.handler.onConnect.call(this, event); };
             this.ws.onclose = event => { if (this.handler.onDisconnect)
@@ -18,63 +18,47 @@ var ThirteenAPI;
         disconnect() {
             this.ws.close(1000);
         }
-        waitFor(type, callback) {
-            let waiter = this.waiter ? this.waiter : this.waiter = new Map();
-            let list = waiter.get(type);
-            if (!list) {
-                list = [];
-                waiter.set(type, list);
-            }
-            list.push(callback);
-        }
         onReceive(event) {
             let handler = this.handler;
             if (handler == undefined) {
                 return;
             }
             let payload = JSON.parse(event.data);
-            if (this.waiter) {
-                let callbacks = this.waiter.get(payload.type);
-                if (callbacks) {
-                    callbacks.forEach(it => it(payload));
-                    this.waiter.delete(payload.type);
-                }
-            }
             switch (payload.type) {
-                case "IDENTIFY":
+                case 'IDENTIFY':
                     this.id = payload.id;
                     if (handler.onIdentify)
                         handler.onIdentify.call(this, payload);
                     break;
-                case "QUEUE_UPDATE":
+                case 'QUEUE_UPDATE':
                     if (handler.onQueueUpdate)
                         handler.onQueueUpdate.call(this, payload);
                     break;
-                case "READY":
+                case 'READY':
                     if (handler.onReady)
                         handler.onReady.call(this, payload);
                     break;
-                case "END":
+                case 'END':
                     if (handler.onEnd)
                         handler.onEnd.call(this, payload);
                     break;
-                case "PLAY":
+                case 'PLAY':
                     if (handler.onPlay)
                         handler.onPlay.call(this, payload);
                     break;
-                case "TURN_CHANGE":
+                case 'TURN_CHANGE':
                     if (handler.onTurnChange)
                         handler.onTurnChange.call(this, payload);
                     break;
-                case "SUCCESS":
+                case 'SUCCESS':
                     if (handler.onSuccess)
                         handler.onSuccess.call(this, payload);
                     break;
-                case "ERROR":
+                case 'ERROR':
                     if (handler.onError)
                         handler.onError.call(this, payload);
                     break;
-                case "STATUS":
+                case 'STATUS':
                     if (handler.onStatus)
                         handler.onStatus.call(this, payload);
                     break;

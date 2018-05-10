@@ -27,4 +27,10 @@ var utils;
         return array;
     }
     utils.rotate = rotate;
+    function lazy(fn) {
+        let value;
+        return function () {
+            return value || (value = fn());
+        };
+    }
 })(utils || (utils = {}));

@@ -1,5 +1,4 @@
-use std::fmt;
-use std::cmp;
+use std::{fmt, cmp};
 
 #[inline]
 /// Return a deck partioned into 4 equal hands.

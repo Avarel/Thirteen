@@ -137,13 +137,14 @@ impl Game {
     }
 
     // add a new player and return their local id
-    pub fn add_player(&mut self, id: usize) {
+    pub fn add_player(&mut self, id: usize, name: String) {
         if self.started || self.players.len() >= 4 {
             unimplemented!()
         }
 
         self.players.push(Player {
             id,
+            name,
             cards: Vec::new(),
         });
     }
@@ -222,6 +223,7 @@ pub enum TurnError {
 #[derive(Debug)]
 pub struct Player {
     pub id: usize,
+    pub name: String,
     cards: Vec<Card>,
 }
 
@@ -294,37 +296,26 @@ impl<'game> PlayerHandle<'game> {
             self.game.next_turn();
             self.game.new_pattern = false;
         } else {
-            let error = {
+            {
                 let target = self.game.history.last().unwrap();
+                
                 match turn.pattern {
-                    Pattern::Invalid => Some(TurnError::BadPattern),
+                    Pattern::Invalid => return Err(PlayError::InvalidPattern),
                     Pattern::Repeat(4)
                         if (target.pattern == Pattern::Repeat(1)
                             || target.pattern == Pattern::Repeat(2))
-                            && target.top_card().vc_value() == 12 =>
-                    {
-                        None
-                    }
+                            && target.top_card().vc_value() == 12 => { /* do nothing */ }
                     Pattern::SequencePair(n)
                         if target.pattern == Pattern::Repeat(n - 2)
-                            && target.top_card().vc_value() == 12 =>
-                    {
-                        None
-                    }
-                    p if p != target.pattern => Some(TurnError::BadPattern),
-                    _ if turn.top_card() > target.top_card() => None,
-                    _ => Some(TurnError::BadCard)
-                }
-            };
-
-            match error {
-                Some(TurnError::BadCard) => return Err(PlayError::BadCard),
-                Some(TurnError::BadPattern) => return Err(PlayError::BadPattern),
-                None => {
-                    self.game.history.push(turn);
-                    self.game.next_turn();
-                }
+                            && target.top_card().vc_value() == 12 => { /* do nothing */ }
+                    p if p != target.pattern => return Err(PlayError::BadPattern),
+                    _ if turn.top_card() > target.top_card() => { /* do nothing */ },
+                    _ => return Err(PlayError::BadCard),
+                };
             }
+
+            self.game.history.push(turn);
+            self.game.next_turn();
         }
 
         self.game.pass_count = 0;
