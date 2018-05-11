@@ -68,7 +68,7 @@ impl fmt::Display for Pattern {
 }
 
 pub enum PlayError {
-    NoCards, // player tried to play nothing
+    NoCards,        // player tried to play nothing
     OutOfTurn,
     InvalidCard,    // player tried to play cards that they don't have
     InvalidPattern, // pattern is illegal

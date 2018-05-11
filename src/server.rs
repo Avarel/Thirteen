@@ -3,16 +3,16 @@ use ws;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
 
+use data::*;
 use game;
-use uuid::Uuid;
 use linked_hash_map::LinkedHashMap;
 use std::{
 	collections::{HashMap, VecDeque},
 	sync::{
-		atomic::{AtomicBool, AtomicUsize, Ordering}, {Arc, RwLock, Weak},
+		atomic::{AtomicBool, Ordering}, {Arc, RwLock, Weak},
 	},
 };
-use data::*;
+use uuid::Uuid;
 
 pub fn start_server() {
 	println!("Starting server.");
@@ -144,7 +144,7 @@ impl Instance {
 			use cards::Card;
 			self.send_out(
 				p.id,
-				&DataOut::READY {
+				&Response::READY {
 					your_cards: game.player_handle(p.id)
 						.cards()
 						.iter()
@@ -156,29 +156,29 @@ impl Instance {
 			);
 		}
 
-		self.broadcast(&DataOut::TURN_CHANGE {
+		self.broadcast(&Response::TURN_CHANGE {
 			player_id: game.current_player().id,
 			first_turn: true,
 			new_pattern: true,
 		});
 	}
 
-	pub fn process(&self, client_id: Uuid, data: DataIn) {
+	pub fn process(&self, client_id: Uuid, data: Request) {
 		match data {
-			DataIn::QUEUE { .. } => { /* ignore */ }
-			DataIn::PASS {} => {
+			Request::QUEUE { .. } => { /* ignore */ }
+			Request::PASS {} => {
 				use game::PassError;
 				let mut game = self.model.write().unwrap();
 				match game.player_handle(client_id).try_pass() {
 					Ok(()) => {
 						self.send_out(
 							client_id,
-							&DataOut::SUCCESS {
+							&Response::SUCCESS {
 								message: SuccessCode::PASS,
 							},
 						);
 
-						self.broadcast(&DataOut::TURN_CHANGE {
+						self.broadcast(&Response::TURN_CHANGE {
 							player_id: game.current_player().id,
 							first_turn: false,
 							new_pattern: game.is_new_pattern(),
@@ -187,7 +187,7 @@ impl Instance {
 					Err(error) => {
 						self.send_out(
 							client_id,
-							&DataOut::ERROR {
+							&Response::ERROR {
 								message: match error {
 									PassError::OutOfTurn => ErrorCode::OUT_OF_TURN,
 									PassError::MustPlay => ErrorCode::MUST_START_NEW_PATTERN,
@@ -198,7 +198,7 @@ impl Instance {
 					}
 				}
 			}
-			DataIn::PLAY { card_ids } => {
+			Request::PLAY { card_ids } => {
 				use cards::Card;
 				use game::PlayError;
 				let mut game = self.model.write().unwrap();
@@ -210,7 +210,7 @@ impl Instance {
 					} else {
 						self.send_out(
 							client_id,
-							&DataOut::ERROR {
+							&Response::ERROR {
 								message: ErrorCode::INVALID_CARD,
 							},
 						);
@@ -221,20 +221,20 @@ impl Instance {
 					Ok(win) => {
 						self.send_out(
 							client_id,
-							&DataOut::SUCCESS {
+							&Response::SUCCESS {
 								message: SuccessCode::PLAY,
 							},
 						);
-						self.broadcast(&DataOut::PLAY {
+						self.broadcast(&Response::PLAY {
 							player_id: client_id,
 							card_ids: cards.iter().map(Card::into_id).collect(),
 						});
 						if win {
-							self.broadcast(&DataOut::END {
+							self.broadcast(&Response::END {
 								victor_id: client_id,
 							});
 						} else {
-							self.broadcast(&DataOut::TURN_CHANGE {
+							self.broadcast(&Response::TURN_CHANGE {
 								player_id: game.current_player().id,
 								first_turn: false,
 								new_pattern: false,
@@ -244,7 +244,7 @@ impl Instance {
 					Err(error) => {
 						self.send_out(
 							client_id,
-							&DataOut::ERROR {
+							&Response::ERROR {
 								message: match error {
 									PlayError::OutOfTurn => ErrorCode::OUT_OF_TURN,
 									PlayError::NoCards => ErrorCode::NO_CARDS,
@@ -262,7 +262,7 @@ impl Instance {
 		}
 	}
 
-	pub fn send_out(&self, client_index: Uuid, data: &DataOut) {
+	pub fn send_out(&self, client_index: Uuid, data: &Response) {
 		let sender = &self.senders.read().unwrap()[&client_index]
 			.upgrade()
 			.expect("Reference dropped");
@@ -272,7 +272,7 @@ impl Instance {
 			.expect("Error while sending");
 	}
 
-	pub fn broadcast(&self, data: &DataOut) {
+	pub fn broadcast(&self, data: &Response) {
 		let data = serde_json::to_string(data).expect("Can not serialize");
 		let data = data.as_str();
 		self.senders
@@ -285,7 +285,7 @@ impl Instance {
 
 	#[inline]
 	pub fn broadcast_queue_update(&self) {
-		let data = DataOut::QUEUE_UPDATE {
+		let data = Response::QUEUE_UPDATE {
 			size: self.senders.read().unwrap().len(),
 			goal: self.game_size,
 		};
@@ -368,8 +368,8 @@ struct ClientConnection {
 impl ws::Handler for ClientConnection {
 	fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
 		match msg {
-			ws::Message::Text(buf) => match serde_json::from_str::<DataIn>(&buf) {
-				Ok(DataIn::QUEUE { name, game_size }) => {
+			ws::Message::Text(buf) => match serde_json::from_str::<Request>(&buf) {
+				Ok(Request::QUEUE { name, game_size }) => {
 					let mm_instance =
 						Server::find_instance(&self.server.upgrade().unwrap(), game_size);
 
@@ -424,7 +424,7 @@ impl ws::Handler for ClientConnection {
 
 	fn on_open(&mut self, _: ws::Handshake) -> ws::Result<()> {
 		self.out
-			.send(serde_json::to_string(&DataOut::IDENTIFY { id: self.client_id }).unwrap())
+			.send(serde_json::to_string(&Response::IDENTIFY { id: self.client_id }).unwrap())
 			.unwrap();
 
 		Ok(())

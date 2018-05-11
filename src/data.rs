@@ -10,7 +10,7 @@ pub struct PlayerData {
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
-pub enum DataOut {
+pub enum Response {
 	QUEUE_UPDATE {
 		size: usize,
 		goal: usize,
@@ -68,7 +68,7 @@ pub enum ErrorCode {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
-pub enum DataIn {
+pub enum Request {
 	QUEUE { name: String, game_size: usize },
 	PASS {},
 	PLAY { card_ids: Vec<u8> },
