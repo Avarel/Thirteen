@@ -1,5 +1,6 @@
 use cards::Card;
-use std::fmt;
+use std::{fmt, collections::HashMap};
+use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Pattern {
@@ -12,7 +13,7 @@ pub enum Pattern {
 impl Pattern {
     /// Check for a sequence of pairs.
     /// ie: [3, 3, 4, 4, 5, 5] of a certain length >= 3 (6 cards)
-    pub fn check_sequence_pair(source: &[Card]) -> bool {
+    fn check_sequence_pair(source: &[Card]) -> bool {
         source.len() >= 6 && source.last().unwrap().vc_value() != 12
             && source
                 .chunks(2)
@@ -23,7 +24,7 @@ impl Pattern {
     /// Check for n-repeats.
     /// ie: [3, 3] of 1..4
     /// Can also represent single patterns
-    pub fn check_sequence(source: &[Card]) -> bool {
+    fn check_sequence(source: &[Card]) -> bool {
         source.len() >= 3 && source.last().unwrap().vc_value() != 12
             && source
                 .iter()
@@ -33,7 +34,7 @@ impl Pattern {
 
     /// Check for a sequence.
     /// ie: [3, 4, 5...] of a certain length >= 3
-    pub fn check_repeat(source: &[Card]) -> bool {
+    fn check_repeat(source: &[Card]) -> bool {
         source.len() >= 1 && source.iter().all(|x| x.vc_value() == source[0].vc_value())
     }
 
@@ -87,10 +88,11 @@ pub struct Game {
 
     new_pattern: bool,   // is it a new round? can you start a new pattern?
     pass_count: usize,   // how many people passed
-    current_turn: usize, // whose turn is it currently by id
+    // current_turn: usize, // whose turn is it currently by id
     mandatory_card: Option<Card>,
 
-    players: Vec<Player>, // cards of the players of the game
+    pub players: HashMap<Uuid, Player>, // cards of the players of the game
+    turn_order: Vec<Uuid>,
     history: Vec<Turn>,   // past turns
 }
 
@@ -100,35 +102,32 @@ impl Game {
             started: false,
             new_pattern: true,
             pass_count: 0,
-            current_turn: 0,
             mandatory_card: None,
-            players: Vec::new(),
+            players: HashMap::with_capacity(4),
+            turn_order: Vec::new(),
             history: Vec::new(),
         }
     }
 
-    #[inline]
-    fn id_to_index(&self, id: usize) -> Option<usize> {
-        self.players.iter().position(|p| p.id == id)
-    }
-
     // get an abstraction
     #[inline]
-    pub fn player_handle(&mut self, id: usize) -> PlayerHandle {
+    pub fn player_handle(&mut self, id: Uuid) -> PlayerHandle {
         PlayerHandle {
-            index: self.id_to_index(id).unwrap(),
+            id,
             game: self,
         }
     }
 
     #[inline]
-    pub fn players(&self) -> &[Player] {
-        &self.players
+    pub fn players(&self) -> impl Iterator<Item=&Player> {
+        // self.players.values().collect()
+        // unimplemented!()
+        self.players.values()
     }
 
     #[inline]
     pub fn current_player(&self) -> &Player {
-        &self.players[self.current_turn]
+        &self.players[&self.turn_order[0]]
     }
 
     #[inline]
@@ -137,21 +136,20 @@ impl Game {
     }
 
     // add a new player and return their local id
-    pub fn add_player(&mut self, id: usize, name: String) {
+    pub fn add_player(&mut self, id: Uuid, name: String) {
         if self.started || self.players.len() >= 4 {
             unimplemented!()
         }
 
-        self.players.push(Player {
+        self.players.insert(id, Player {
             id,
             name,
             cards: Vec::new(),
         });
     }
 
-    pub fn remove_player(&mut self, id: usize) {
-        let index = self.id_to_index(id).unwrap();
-        self.players.remove(index);
+    pub fn remove_player(&mut self, id: Uuid) {
+        self.players.remove(&id);
     }
 
     pub fn start(&mut self) {
@@ -165,27 +163,29 @@ impl Game {
         use cards::partitioned_deck;
         let mut decks = partitioned_deck();
 
-        for i in 0..self.players.len() {
+        self.players.iter_mut().enumerate().for_each(|(i, (_,p))| {
             decks[i].sort();
-            self.players[i].cards = decks[i].to_vec();
-        }
+            p.cards = decks[i].to_vec();
+        });
+
+        self.turn_order = self.players.keys().cloned().collect();
 
         // find lowest turn and force the card
-        let (current_turn, card) = self.players
-            .iter()
-            .enumerate()
-            .min_by_key(|p| p.1.cards[0])
-            .map(|e| (e.0, e.1.cards[0]))
+        let (current_turn, card) = self.players.values()
+            .min_by_key(|p| p.cards[0])
+            .map(|p| (p.id, p.cards[0]))
             .unwrap();
-        self.current_turn = current_turn;
+
+        let rotate_amount = self.turn_order.iter().position(|&i| i == current_turn).unwrap();
+        self.turn_order.rotate_right(rotate_amount);
+
         self.mandatory_card = Some(card);
 
         self.started = true;
     }
 
-    fn next_turn(&mut self) {
-        self.current_turn += 1;
-        self.current_turn %= self.players.len();
+    fn next_turn(&mut self) { // todo implement direction
+        self.turn_order.rotate_left(1);
     }
 }
 
@@ -222,13 +222,13 @@ pub enum TurnError {
 
 #[derive(Debug)]
 pub struct Player {
-    pub id: usize,
+    pub id: Uuid,
     pub name: String,
     cards: Vec<Card>,
 }
 
 pub struct PlayerHandle<'game> {
-    index: usize,
+    id: Uuid,
     game: &'game mut Game,
 }
 
@@ -236,12 +236,12 @@ pub struct PlayerHandle<'game> {
 impl<'game> PlayerHandle<'game> {
     #[inline]
     pub fn cards(&self) -> &[Card] {
-        &self.game.players[self.index].cards
+        &self.game.players.get(&self.id).unwrap().cards
     }
 
     #[inline]
     pub fn cards_mut(&mut self) -> &mut Vec<Card> {
-        &mut self.game.players[self.index].cards
+        &mut self.game.players.get_mut(&self.id).unwrap().cards
     }
 
     pub fn add_cards(&mut self, cards: &[Card]) {
@@ -271,7 +271,7 @@ impl<'game> PlayerHandle<'game> {
             unimplemented!()
         }
 
-        if self.game.current_turn != self.index {
+        if self.game.current_player().id != self.id {
             return Err(PlayError::OutOfTurn);
         } else if cards.len() == 0 {
             return Err(PlayError::NoCards);
@@ -332,7 +332,7 @@ impl<'game> PlayerHandle<'game> {
             unimplemented!()
         }
 
-        if self.game.current_turn != self.index {
+        if self.game.current_player().id != self.id {
             return Err(PassError::OutOfTurn);
         }
 

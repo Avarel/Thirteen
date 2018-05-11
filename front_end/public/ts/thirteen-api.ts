@@ -1,7 +1,9 @@
 namespace ThirteenAPI {
+    export type UUID = string;
+
     export interface IdentifyEvent {
         type: 'IDENTIFY',
-        id: number
+        id: UUID
     }
     export interface QueueUpdateEvent {
         type: 'QUEUE_UPDATE',
@@ -11,21 +13,21 @@ namespace ThirteenAPI {
     export interface ReadyEvent {
         type: 'READY',
         your_cards: number[],
-        players: { id: number, name: string }[],
+        players: { id: UUID, name: string }[],
         cards_per_player: number
     }
     export interface EndEvent {
         type: 'END',
-        victor_id: number
+        victor_id: UUID
     }
     export interface PlayEvent {
         type: 'PLAY',
-        player_id: number,
+        player_id: UUID,
         card_ids: number[]
     }
     export interface TurnChangeEvent {
         type: 'TURN_CHANGE'
-        player_id: number,
+        player_id: UUID,
         first_turn: boolean,
         new_pattern: boolean
     }
@@ -76,7 +78,7 @@ namespace ThirteenAPI {
 
     export class Client {
         readonly ws: WebSocket;
-        id!: number;
+        id!: UUID;
 
         constructor(address: string, readonly handler: EventHandler) {
             console.log('Connecting to server...');

@@ -7,15 +7,16 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-extern crate chrono;
 extern crate linked_hash_map;
 extern crate rand;
-extern crate timer;
+extern crate uuid;
 extern crate ws;
 
+pub mod data;
 pub mod cards;
 pub mod game;
 pub mod server;
+pub mod server2;
 mod utils;
 
 fn main() {

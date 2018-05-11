@@ -4,6 +4,7 @@ use ws;
 pub const PROTOCOL: &'static str = "thirteen-game";
 
 use game;
+use uuid::Uuid;
 use linked_hash_map::LinkedHashMap;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -11,40 +12,35 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering}, {Arc, RwLock, Weak},
 	},
 };
+use data::*;
 
 pub fn start_server() {
 	println!("Starting server.");
 
 	let server = Arc::new(Server::new());
 
-	let mut counter = 0;
-
 	ws::listen("127.0.0.1:2794", |out| {
 		let client = ClientConnection {
-			client_id: counter,
+			client_id: Uuid::new_v4(),
 			server: Arc::downgrade(&server),
 			instance: None,
 			out: out.into(),
 		};
-		counter += 1;
 		client
 	}).unwrap();
 }
 
 pub struct Server {
-	counter: AtomicUsize,
-
 	// matchmaking instances
 	mm_instances: RwLock<VecDeque<Arc<Instance>>>,
 
 	// running instances
-	rn_instances: RwLock<HashMap<usize, Arc<Instance>>>,
+	rn_instances: RwLock<HashMap<Uuid, Arc<Instance>>>,
 }
 
 impl Server {
 	pub fn new() -> Self {
 		Server {
-			counter: AtomicUsize::new(0),
 			mm_instances: VecDeque::new().into(),
 			rn_instances: HashMap::new().into(),
 		}
@@ -56,13 +52,13 @@ impl Server {
 	}
 
 	/// Upgrade a matchmaking instance into a running instance.
-	pub fn upgrade_instance(&self, id: usize) {
+	pub fn upgrade_instance(&self, id: Uuid) {
 		let instance = self.remove_mm_instance(id);
 		self.rn_instances.write().unwrap().insert(id, instance);
 	}
 
 	/// Remove a running instance.
-	pub fn remove_rn_instance(&self, id: usize) -> Arc<Instance> {
+	pub fn remove_rn_instance(&self, id: Uuid) -> Arc<Instance> {
 		self.rn_instances.write().unwrap().remove(&id).unwrap() // i want an error if evoked wrongly
 	}
 
@@ -90,7 +86,7 @@ impl Server {
 	}
 
 	/// Remove a matchmaking instance.
-	pub fn remove_mm_instance(&self, id: usize) -> Arc<Instance> {
+	pub fn remove_mm_instance(&self, id: Uuid) -> Arc<Instance> {
 		let mut mm_instances = self.mm_instances.write().unwrap();
 		let index = mm_instances
 			.iter()
@@ -102,27 +98,25 @@ impl Server {
 }
 
 pub struct Instance {
-	id: usize,
+	id: Uuid,
 	game_size: usize,
 	running: AtomicBool,
 	server: Weak<Server>,
-	senders: RwLock<LinkedHashMap<usize, Weak<ws::Sender>>>,
+	senders: RwLock<LinkedHashMap<Uuid, Weak<ws::Sender>>>,
 	model: RwLock<game::Game>,
 }
 
 impl Instance {
 	pub fn new_arc(server: Weak<Server>, game_size: usize) -> Arc<Self> {
 		let strong = server.upgrade().unwrap();
-		let id = strong.counter.load(Ordering::Relaxed);
 		let arc = Instance {
-			id,
+			id: Uuid::new_v4(),
 			game_size,
 			running: false.into(),
 			server: server,
 			senders: LinkedHashMap::with_capacity(game_size).into(),
 			model: game::Game::new().into(),
 		}.into();
-		strong.counter.store(id + 1, Ordering::Relaxed);
 		arc
 	}
 
@@ -140,7 +134,6 @@ impl Instance {
 		game.start();
 
 		let players: Vec<PlayerData> = game.players()
-			.iter()
 			.map(|p| PlayerData {
 				id: p.id,
 				name: p.name.clone(),
@@ -170,7 +163,7 @@ impl Instance {
 		});
 	}
 
-	pub fn process(&self, client_id: usize, data: DataIn) {
+	pub fn process(&self, client_id: Uuid, data: DataIn) {
 		match data {
 			DataIn::QUEUE { .. } => { /* ignore */ }
 			DataIn::PASS {} => {
@@ -269,7 +262,7 @@ impl Instance {
 		}
 	}
 
-	pub fn send_out(&self, client_index: usize, data: &DataOut) {
+	pub fn send_out(&self, client_index: Uuid, data: &DataOut) {
 		let sender = &self.senders.read().unwrap()[&client_index]
 			.upgrade()
 			.expect("Reference dropped");
@@ -307,7 +300,7 @@ impl Instance {
 	pub fn add_client(
 		&self,
 		sender: Weak<ws::Sender>,
-		client_id: usize,
+		client_id: Uuid,
 		name: String,
 	) -> Result<(), ws::Error> {
 		if self.running() {
@@ -329,7 +322,7 @@ impl Instance {
 		Ok(())
 	}
 
-	pub fn remove_client(&self, client_id: usize, close: bool) {
+	pub fn remove_client(&self, client_id: Uuid, close: bool) {
 		let removed = self.senders.write().unwrap().remove(&client_id); // take them and drop them
 		if let Some(sender) = removed {
 			if close {
@@ -362,82 +355,8 @@ impl Instance {
 	}
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlayerData {
-	pub id: usize,
-	name: String,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum DataOut {
-	QUEUE_UPDATE {
-		size: usize,
-		goal: usize,
-	},
-	IDENTIFY {
-		id: usize,
-	},
-	READY {
-		your_cards: Vec<u8>,
-		players: Vec<PlayerData>,
-		cards_per_player: usize,
-	},
-	PLAY {
-		player_id: usize,
-		card_ids: Vec<u8>,
-	},
-	END {
-		victor_id: usize,
-	},
-	TURN_CHANGE {
-		player_id: usize,
-		first_turn: bool,
-		new_pattern: bool,
-	},
-	STATUS {
-		message: String,
-	},
-	SUCCESS {
-		message: SuccessCode,
-	},
-	ERROR {
-		message: ErrorCode,
-	},
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
-pub enum SuccessCode {
-	PASS,
-	PLAY,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ErrorCode {
-	OUT_OF_TURN,
-	NO_CARDS,
-	MUST_PLAY_LOWEST,
-	MUST_START_NEW_PATTERN,
-	INVALID_CARD,
-	INVALID_PATTERN,
-	BAD_CARD,
-	BAD_PATTERN,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
-pub enum DataIn {
-	QUEUE { name: String, game_size: usize },
-	PASS {},
-	PLAY { card_ids: Vec<u8> },
-}
-
 struct ClientConnection {
-	client_id: usize,
+	client_id: Uuid,
 
 	server: Weak<Server>,
 	instance: Option<Weak<Instance>>,

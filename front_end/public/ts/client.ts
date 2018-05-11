@@ -40,7 +40,7 @@ namespace Thirteen {
     }
 
     namespace Players {
-        export let players: { id: number, name: string }[] = [];
+        export let players: { id: ThirteenAPI.UUID, name: string }[] = [];
 
         class PlayerDisplay {
             readonly tag: HTMLElement;
@@ -85,7 +85,7 @@ namespace Thirteen {
             }
         }
 
-        export function ofID(id: number): PlayerDisplay {
+        export function ofID(id: ThirteenAPI.UUID): PlayerDisplay {
             for (let i = 0; i < players.length; i++) {
                 if (players[i].id == id) {
                     return slots[i]

@@ -6,8 +6,7 @@ publish = false
 
 [dependencies]
 rand = "0.4.2"
-timer = "0.2.0"
-chrono = "0.4.0"
+uuid = { version = "0.6.3", features = ["v4", "serde"] }
 ws = "0.7.3"
 linked-hash-map = "0.5.1"
 
