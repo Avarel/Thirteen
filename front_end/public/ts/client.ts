@@ -194,7 +194,7 @@ namespace Thirteen {
             }
 
             this.send({
-                type: 'QUEUE',
+                type: 'JOIN_GAME',
                 name: name,
                 game_size: gameSize
             });

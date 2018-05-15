@@ -47,10 +47,13 @@ namespace ThirteenAPI {
         | PlayEvent | EndEvent | SuccessEvent
         | TurnChangeEvent | StatusEvent | ErrorEvent;
 
-    export interface Queue {
-        type: 'QUEUE',
+    export interface JoinGame {
+        type: 'JOIN_GAME',
         name: string,
         game_size: number,
+    }
+    export interface ExitGame {
+        type: 'EXIT_GAME'
     }
     export interface Play {
         type: 'PLAY',
@@ -60,7 +63,7 @@ namespace ThirteenAPI {
         type: 'PASS'
     }
 
-    export type PayloadOut = Queue | Play | Pass;
+    export type PayloadOut = JoinGame | ExitGame | Play | Pass;
 
     export interface EventHandler {
         onConnect?(this: Client, event: Event): void;

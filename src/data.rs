@@ -66,10 +66,12 @@ pub enum ErrorCode {
 	BAD_PATTERN,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum Request {
-	QUEUE { name: String, game_size: usize },
-	PASS {},
+	JOIN_GAME { name: String, game_size: usize },
+	EXIT_GAME,
+	PASS,
 	PLAY { card_ids: Vec<u8> },
 }

@@ -11,16 +11,6 @@ namespace CardsJS {
 
     let data = new Map<HTMLElement, Card>();
 
-    export function mouseEvent(this: HTMLElement, ev: any): void {
-        let card: Card = data.get(this)!;
-        if (card.container) {
-            let handler = card.container.clickHandler;
-            if (handler) {
-                handler.func.call(handler.context || window, card, ev);
-            }
-        }
-    }
-
     export function init(options: any): void {
         if (options) {
             for (let i in options) {
@@ -64,7 +54,15 @@ namespace CardsJS {
             this.element.style.backgroundImage = `url(${opt.cardUrl})`;
             this.element.style.position = 'absolute';
             this.element.style.cursor = 'pointer';
-            this.element.onclick = mouseEvent;
+            this.element.onclick = function(this: HTMLElement, ev: any): void {
+                let card: Card = data.get(this)!;
+                if (card.container) {
+                    let handler = card.container.clickHandler;
+                    if (handler) {
+                        handler.func.call(handler.context || window, card, ev);
+                    }
+                }
+            }
             data.set(this.element, this);
             table.appendChild(this.element);
             this.face(false);
@@ -192,6 +190,7 @@ namespace CardsJS {
         }
     }
 
+    // Beautiful isnt it
     type AnchorArgument = {
         left: number
     } | {
@@ -433,6 +432,12 @@ namespace CardsJS {
 
         toString(): string {
             return 'Container';
+        }
+
+        delete() {
+            for (let card of this.array) {
+                card.delete();
+            }
         }
     }
 

@@ -2,6 +2,10 @@
 #![feature(try_from)]
 #![allow(dead_code)]
 
+#[macro_use] 
+extern crate log;
+extern crate env_logger;
+
 extern crate serde;
 extern crate serde_json;
 #[macro_use]
@@ -16,23 +20,16 @@ pub mod data;
 pub mod cards;
 pub mod game;
 pub mod server;
-pub mod server2;
+
+// rewrite of server backend, not in effect yet
+//pub mod server_rw;
+
 mod utils;
 
 fn main() {
-    // use std::thread;
-    // let thread = thread::spawn(move || {
+    env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
+
     server::start_server();
-    // });
-
-    // println!("Started the Thirteen server!");
-    // thread.join().unwrap();
-
-    // let mut game = game::Game::new();
-    // game.add_player();
-    // game.add_player();
-    // game.start();
-    // println!("{:?}", game.player(1));
 }
 
 #[test]

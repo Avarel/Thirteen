@@ -10,16 +10,6 @@ var CardsJS;
     };
     let table = document.querySelector(opt.table);
     let data = new Map();
-    function mouseEvent(ev) {
-        let card = data.get(this);
-        if (card.container) {
-            let handler = card.container.clickHandler;
-            if (handler) {
-                handler.func.call(handler.context || window, card, ev);
-            }
-        }
-    }
-    CardsJS.mouseEvent = mouseEvent;
     function init(options) {
         if (options) {
             for (let i in options) {
@@ -59,7 +49,15 @@ var CardsJS;
             this.element.style.backgroundImage = `url(${opt.cardUrl})`;
             this.element.style.position = 'absolute';
             this.element.style.cursor = 'pointer';
-            this.element.onclick = mouseEvent;
+            this.element.onclick = function (ev) {
+                let card = data.get(this);
+                if (card.container) {
+                    let handler = card.container.clickHandler;
+                    if (handler) {
+                        handler.func.call(handler.context || window, card, ev);
+                    }
+                }
+            };
             data.set(this.element, this);
             table.appendChild(this.element);
             this.face(false);
@@ -348,6 +346,11 @@ var CardsJS;
         }
         toString() {
             return 'Container';
+        }
+        delete() {
+            for (let card of this.array) {
+                card.delete();
+            }
         }
     }
     CardsJS.Container = Container;

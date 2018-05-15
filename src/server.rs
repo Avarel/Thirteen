@@ -15,7 +15,7 @@ use std::{
 use uuid::Uuid;
 
 pub fn start_server() {
-	println!("Starting server.");
+	info!("Starting server.");
 
 	let server = Arc::new(Server::new());
 
@@ -108,7 +108,6 @@ pub struct Instance {
 
 impl Instance {
 	pub fn new_arc(server: Weak<Server>, game_size: usize) -> Arc<Self> {
-		let strong = server.upgrade().unwrap();
 		let arc = Instance {
 			id: Uuid::new_v4(),
 			game_size,
@@ -165,7 +164,8 @@ impl Instance {
 
 	pub fn process(&self, client_id: Uuid, data: Request) {
 		match data {
-			Request::QUEUE { .. } => { /* ignore */ }
+			Request::JOIN_GAME { .. } => { /* ignore */ }
+			Request::EXIT_GAME => { /* ignore */ }
 			Request::PASS {} => {
 				use game::PassError;
 				let mut game = self.model.write().unwrap();
@@ -369,7 +369,7 @@ impl ws::Handler for ClientConnection {
 	fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
 		match msg {
 			ws::Message::Text(buf) => match serde_json::from_str::<Request>(&buf) {
-				Ok(Request::QUEUE { name, game_size }) => {
+				Ok(Request::JOIN_GAME { name, game_size }) => {
 					let mm_instance =
 						Server::find_instance(&self.server.upgrade().unwrap(), game_size);
 
