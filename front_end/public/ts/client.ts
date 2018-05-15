@@ -2,6 +2,10 @@ import { render } from '../../node_modules/@types/node-sass/index';
 
 CardsJS.init({ table: '.game' });
 
+
+
+
+
 namespace Thirteen {
     export let connection: ThirteenAPI.Client | undefined = undefined;
 
@@ -182,33 +186,31 @@ namespace Thirteen {
     export let handler: ThirteenAPI.EventHandler = {
         onConnect(event: Event) {
             console.log('Connected to server.');
-            Header.connectBtn.innerText = 'Disconnect';
         },
         onIdentify(event: ThirteenAPI.IdentifyEvent) {
-            let name = prompt("Name", `Username`) || "Too Lazy";
-            let gameSize: number | undefined;
+            let name = document.querySelector<HTMLInputElement>("#username-select")!.value;
+            let size = parseInt(document.querySelector<HTMLSelectElement>("#game-size-select")!.value);
 
-            while (gameSize == undefined) {
-                let size = parseInt(prompt("Players", '4') || '4')
-                if (size != NaN) gameSize = size
-            }
+            Header.loginBox(false, true);
 
             this.send({
                 type: 'JOIN_GAME',
                 name: name,
-                game_size: gameSize
+                game_size: size
             });
         },
         onDisconnect(event: Event) {
             console.log('Disconnected from server.');
-            Header.connectBtn.innerText = 'Connect';
+            Header.loginBox(true, true);
             connection = undefined;
             reset();
         },
         onQueueUpdate(event: ThirteenAPI.QueueUpdateEvent) {
-            updateStatus(`${event.size}/${event.goal} connected players!`);
+            updateStatus(`Finding game... ${event.size}/${event.goal} connected players!`);
         },
         onReady(event: ThirteenAPI.ReadyEvent) {
+            Header.loginBox(false, false);
+
             Players.players = utils.rotate(event.players.slice(0), event.players.map(it => it.id).indexOf(connection!.id));
             for (let p of Players.players) {
                 Players.ofID(p.id).name = p.name
@@ -321,15 +323,25 @@ namespace Thirteen {
         }
     };
 }
+
 namespace Header {
-    export let connectBtn = document.querySelector<HTMLElement>('#connect')!;
+    let connectBtn = document.querySelector<HTMLElement>('#connect')!;
     connectBtn.onclick = () => {
         if (connectBtn.innerText == 'Connect' && !Thirteen.connection) { // wss://gnarbot.xyz/thirteen/ws // 127.0.0.1:2794
             Thirteen.connection = new ThirteenAPI.Client('ws://127.0.0.1:2794', Thirteen.handler);
             connectBtn.innerText = 'Disconnect';
+            loginBox(false, true);
         } else if (Thirteen.connection) {
             Thirteen.connection.disconnect();
+            Thirteen.connection = undefined;
             connectBtn.innerText = 'Connect';
+            loginBox(true, true);
         }
     };
+
+    export function loginBox(edit: boolean, show: boolean) {
+        document.querySelector<HTMLInputElement>("#username-select")!.disabled = !edit;
+        document.querySelector<HTMLSelectElement>("#game-size-select")!.disabled = !edit;
+        document.querySelector<HTMLElement>('.login-box')!.hidden = !show;
+    }
 }

@@ -44,7 +44,7 @@ body {
     display: flex;
     flex-direction: column;
     font-family: Lato, sans-serif;
-    background: url(./assets/img/bg-tile.png), linear-gradient(to bottom, #3d4046, #1c1e22);
+    background: url("./assets/img/bg.png"), linear-gradient(to bottom, #3d4046, #1c1e22);
     header {
         height: 80px;
         width: 100vw;
@@ -96,6 +96,44 @@ body {
                 max-height: 600px;
                 background: rgba(0, 0, 0, 0.2);
                 overflow: hidden;
+
+                .login-box {
+                    width: 90vw;
+                    max-width: 300px;
+                    margin: auto;
+                    padding: 20px;
+                    background: rgba(0, 0, 0, 0.5);
+
+                    .login-selection {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 10px;
+
+                        input#username-select {
+                            border-radius: 5px;
+                            padding: 10px;
+                            font-size: 15px;
+                            border: none;
+                            flex: 1;
+                            margin-right: 10px;
+                        }
+
+                        select#game-size-select {
+                            justify-content: flex-end;
+                            height: 38px;
+                            background: white;
+                            font-size: 15px;
+                            border: none;
+                            border-radius: 5px;
+                        }
+                    }
+                    
+                    .button {
+                        flex: 0 1;
+                        color: black;
+                    }
+                }
     
                 .name-tag {
                     position: absolute;

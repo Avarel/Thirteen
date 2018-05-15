@@ -156,32 +156,28 @@ var Thirteen;
     Thirteen.handler = {
         onConnect(event) {
             console.log('Connected to server.');
-            Header.connectBtn.innerText = 'Disconnect';
         },
         onIdentify(event) {
-            let name = prompt("Name", `Username`) || "Too Lazy";
-            let gameSize;
-            while (gameSize == undefined) {
-                let size = parseInt(prompt("Players", '4') || '4');
-                if (size != NaN)
-                    gameSize = size;
-            }
+            let name = document.querySelector("#username-select").value;
+            let size = parseInt(document.querySelector("#game-size-select").value);
+            Header.loginBox(false, true);
             this.send({
                 type: 'JOIN_GAME',
                 name: name,
-                game_size: gameSize
+                game_size: size
             });
         },
         onDisconnect(event) {
             console.log('Disconnected from server.');
-            Header.connectBtn.innerText = 'Connect';
+            Header.loginBox(true, true);
             Thirteen.connection = undefined;
             reset();
         },
         onQueueUpdate(event) {
-            updateStatus(`${event.size}/${event.goal} connected players!`);
+            updateStatus(`Finding game... ${event.size}/${event.goal} connected players!`);
         },
         onReady(event) {
+            Header.loginBox(false, false);
             Players.players = utils.rotate(event.players.slice(0), event.players.map(it => it.id).indexOf(Thirteen.connection.id));
             for (let p of Players.players) {
                 Players.ofID(p.id).name = p.name;
@@ -289,15 +285,24 @@ var Thirteen;
 })(Thirteen || (Thirteen = {}));
 var Header;
 (function (Header) {
-    Header.connectBtn = document.querySelector('#connect');
-    Header.connectBtn.onclick = () => {
-        if (Header.connectBtn.innerText == 'Connect' && !Thirteen.connection) {
+    let connectBtn = document.querySelector('#connect');
+    connectBtn.onclick = () => {
+        if (connectBtn.innerText == 'Connect' && !Thirteen.connection) {
             Thirteen.connection = new ThirteenAPI.Client('ws://127.0.0.1:2794', Thirteen.handler);
-            Header.connectBtn.innerText = 'Disconnect';
+            connectBtn.innerText = 'Disconnect';
+            loginBox(false, true);
         }
         else if (Thirteen.connection) {
             Thirteen.connection.disconnect();
-            Header.connectBtn.innerText = 'Connect';
+            Thirteen.connection = undefined;
+            connectBtn.innerText = 'Connect';
+            loginBox(true, true);
         }
     };
+    function loginBox(edit, show) {
+        document.querySelector("#username-select").disabled = !edit;
+        document.querySelector("#game-size-select").disabled = !edit;
+        document.querySelector('.login-box').hidden = !show;
+    }
+    Header.loginBox = loginBox;
 })(Header || (Header = {}));

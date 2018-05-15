@@ -13,7 +13,7 @@ html
         .container
           h1 Thirteen
           section.buttons
-            span.button#connect Connect
+            //- span.button#connect Connect
             span.button.disabled About
       section.content
         .container
@@ -23,6 +23,14 @@ html
               .name-tag Player 2
               .name-tag Player 3
               .name-tag Player 4
+              .login-box.shadow
+                .login-selection
+                  input(type="text" id='username-select' placeholder="Username...")
+                  select(id='game-size-select')
+                    option(value='2') 2 Players
+                    option(value='3') 3 Players
+                    option(value='4') 4 Players
+                .button#connect Connect
             .status
               .button#pass Pass
               .text Loading...

@@ -96,9 +96,9 @@ impl CurrentTurn {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum TurnDirection {
-    Right,
+    Right, // Default
     Left,
 }
 
@@ -106,11 +106,22 @@ pub enum TurnDirection {
 pub struct Game {
     players: HashMap<Uuid, Player>,
 
-    current_turn: Option<CurrentTurn>,
-    turn_direction: Option<TurnDirection>,
+    state: GameState,
     player_order: Vec<Uuid>,
 
     history: Vec<Event>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum GameState {
+    Setup,
+    Started {
+        current_turn: CurrentTurn,
+        turn_direction: TurnDirection,
+    },
+    Ended {
+        victor_id: Uuid
+    }
 }
 
 impl Game {
@@ -118,8 +129,7 @@ impl Game {
         Game {
             player_order: Vec::new(),
             players: HashMap::new(),
-            current_turn: None,
-            turn_direction: Some(TurnDirection::Right), /*None*/
+            state: GameState::Setup,
             history: Vec::new(),
         }
     }
@@ -132,81 +142,86 @@ impl Game {
     }
 
     pub fn handle(&mut self, mut event: Event) -> Result<(), ActionError> {
-        // Check if the player did it in turn.
-        match self.current_turn.unwrap() {
-            CurrentTurn::FirstTurn { player_id, .. }
-            | CurrentTurn::NormalTurn { player_id }
-            | CurrentTurn::NewTurn { player_id } => {
-                if player_id != event.player_id {
-                    return Err(ActionError::Pass(PassError::OutOfTurn));
-                }
-            }
-            CurrentTurn::SecondMultiTurn { player_ids } => {
-                if !player_ids.contains(&event.player_id) {
-                    return Err(ActionError::Pass(PassError::OutOfTurn));
-                }
-            }
-        };
-
-        match event.action {
-            Action::Pass => {
-                if !self.current_turn.unwrap().can_pass() {
-                    return Err(ActionError::Pass(PassError::MustPlay));
-                }
-            }
-            Action::Play(ref mut current_cards) => {
-                current_cards.sort();
-
-                if current_cards.is_empty() {
-                    return Err(ActionError::Play(PlayError::NoCards));
-                } else if !self.players[&event.player_id].has_cards(&current_cards) {
-                    return Err(ActionError::Play(PlayError::InvalidCard));
-                }
-
-                let current_pattern = Pattern::of(&current_cards);
-
-                if current_pattern == Pattern::Invalid {
-                    return Err(ActionError::Play(PlayError::InvalidPattern));
-                }
-
-                if let Some(CurrentTurn::FirstTurn { required_card, .. }) = self.current_turn {
-                    if *current_cards.first().unwrap() != required_card {
-                        return Err(ActionError::Play(PlayError::MustPlayLowest));
+        if let GameState::Started { current_turn, .. } = self.state {
+             // Check if the player did it in turn.
+            match current_turn {
+                CurrentTurn::FirstTurn { player_id, .. }
+                | CurrentTurn::NormalTurn { player_id }
+                | CurrentTurn::NewTurn { player_id } => {
+                    if player_id != event.player_id {
+                        return Err(ActionError::Pass(PassError::OutOfTurn));
                     }
-                } else if let Some(CurrentTurn::NewTurn { .. }) = self.current_turn {
-                } else {
-                    let previous_cards = match self.last_play().action {
-                        Action::Pass => unreachable!(),
-                        Action::Play(ref previous_cards) => previous_cards
-                    };
+                }
+                CurrentTurn::SecondMultiTurn { player_ids } => {
+                    if !player_ids.contains(&event.player_id) {
+                        return Err(ActionError::Pass(PassError::OutOfTurn));
+                    }
+                }
+            };
 
-                    let previous_pattern = Pattern::of(previous_cards);
-                    match current_pattern {
-                        Pattern::Repeat(4)
-                            if previous_pattern == Pattern::Single
-                                && previous_cards.last().unwrap().vc_value() == 12 => {}
-                        Pattern::SequencePair(n)
-                            if previous_pattern == Pattern::Repeat(n - 2)
-                                && previous_cards.last().unwrap().vc_value() == 12 => {}
-                        _ if current_pattern != previous_pattern => {
-                            return Err(ActionError::Play(PlayError::BadPattern))
+            match event.action {
+                Action::Pass => {
+                    if !current_turn.can_pass() {
+                        return Err(ActionError::Pass(PassError::MustPlay));
+                    }
+                }
+                Action::Play(ref mut current_cards) => {
+                    current_cards.sort();
+
+                    if current_cards.is_empty() {
+                        return Err(ActionError::Play(PlayError::NoCards));
+                    } else if !self.players[&event.player_id].has_cards(&current_cards) {
+                        return Err(ActionError::Play(PlayError::InvalidCard));
+                    }
+
+                    let current_pattern = Pattern::of(&current_cards);
+
+                    if current_pattern == Pattern::Invalid {
+                        return Err(ActionError::Play(PlayError::InvalidPattern));
+                    }
+
+                    if let CurrentTurn::FirstTurn { required_card, .. } = current_turn {
+                        if *current_cards.first().unwrap() != required_card {
+                            return Err(ActionError::Play(PlayError::MustPlayLowest));
                         }
-                        _ if current_cards.last().unwrap() > previous_cards.last().unwrap() => {}
-                        _ => return Err(ActionError::Play(PlayError::BadCard)),
-                    };
+                    } else if let CurrentTurn::NewTurn { .. } = current_turn {
+                    } else {
+                        let previous_cards = match self.last_play().action {
+                            Action::Pass => unreachable!(),
+                            Action::Play(ref previous_cards) => previous_cards
+                        };
+
+                        let previous_pattern = Pattern::of(previous_cards);
+                        match current_pattern {
+                            Pattern::Repeat(4)
+                                if previous_pattern == Pattern::Single
+                                    && previous_cards.last().unwrap().vc_value() == 12 => {}
+                            Pattern::SequencePair(n)
+                                if previous_pattern == Pattern::Repeat(n - 2)
+                                    && previous_cards.last().unwrap().vc_value() == 12 => {}
+                            _ if current_pattern != previous_pattern => {
+                                return Err(ActionError::Play(PlayError::BadPattern))
+                            }
+                            _ if current_cards.last().unwrap() > previous_cards.last().unwrap() => {}
+                            _ => return Err(ActionError::Play(PlayError::BadCard)),
+                        };
+                    }
                 }
             }
+
+            self.history.push(event);
+            self.increment_turn();
         }
-
-        self.history.push(event);
-        self.increment_turn();
-
+       
         Ok(())
     }
 
 
     pub fn has_started(&self) -> bool {
-        self.current_turn.is_some()
+        match self.state {
+            GameState::Started { .. } => true,
+            _ => false,
+        }
     }
 
     pub fn last_play(&self) -> &Event {
@@ -218,71 +233,70 @@ impl Game {
             .unwrap()
     }
 
+    /* 
+    let (position, player_id, required_card) = self.players
+                        .values()
+                        .enumerate()
+                        .min_by_key(|(_, p)| p.cards[0])
+                        .map(|(i, p)| (i, p.id, p.cards[0]))
+                        .unwrap();
+
+                    self.player_order.rotate_right(position);
+
+                    current_turn = CurrentTurn::FirstTurn {
+                        player_id,
+                        required_card,
+                    };*/
+
     fn increment_turn(&mut self) {
-        match self.current_turn {
-            None => {
-                let (position, player_id, required_card) = self.players
-                    .values()
-                    .enumerate()
-                    .min_by_key(|(_, p)| p.cards[0])
-                    .map(|(i, p)| (i, p.id, p.cards[0]))
-                    .unwrap();
-
-                self.player_order.rotate_right(position);
-
-                self.current_turn = Some(CurrentTurn::FirstTurn {
-                    player_id,
-                    required_card,
-                });
-            }
-            // Assumption is that self.player_order[0] is always the current turn's player.
-            Some(ref mut current_turn) => {
-                match current_turn {
-                    CurrentTurn::FirstTurn { .. } => {
-                        if self.player_order.len() > 2 {
-                            let id_0 = self.player_order[1];
-                            let id_1 = *self.player_order.last().unwrap();
-                            *current_turn = CurrentTurn::SecondMultiTurn {
-                                player_ids: [id_0, id_1],
-                            };
-                            return;
-                        }
-                    }
-                    // CurrentTurn::SecondMultiTurn { player_ids: [ref id_0, ref id_1] } => {
-                    //     let id = self.history.last().unwrap().player_id;
-
-                    //     self.turn_direction = if id == *id_0 {
-                    //         Some(TurnDirection::Right)
-                    //     } else if id == *id_1 {
-                    //         Some(TurnDirection::Left)
-                    //     } else {
-                    //         unreachable!() // if you reach here then i really fucked up
-                    //     }
-                    // }
-                    _ => {}
-                };
-
-                match self.turn_direction.as_ref().unwrap() {
-                    TurnDirection::Right => self.player_order.rotate_right(1),
-                    TurnDirection::Left => self.player_order.rotate_left(1),
-                };
-
-                let pass_count = self.history
-                    .iter()
-                    .rev()
-                    .take_while(|e| e.action == Action::Pass)
-                    .count();
-
-                *current_turn = if pass_count >= self.players.len() - 1 {
-                    CurrentTurn::NewTurn {
-                        player_id: self.player_order[0],
-                    }
-                } else {
-                    CurrentTurn::NormalTurn {
-                        player_id: self.player_order[0],
+        if let GameState::Started { ref mut current_turn, ref turn_direction } = self.state {
+            match current_turn {
+                CurrentTurn::FirstTurn { .. } => {
+                    if self.player_order.len() > 2 {
+                        let id_0 = self.player_order[1];
+                        let id_1 = *self.player_order.last().unwrap();
+                        *current_turn = CurrentTurn::SecondMultiTurn {
+                            player_ids: [id_0, id_1],
+                        };
+                        return;
                     }
                 }
+                // CurrentTurn::SecondMultiTurn { player_ids: [ref id_0, ref id_1] } => {
+                //     let id = self.history.last().unwrap().player_id;
+
+                //     self.turn_direction = if id == *id_0 {
+                //         Some(TurnDirection::Right)
+                //     } else if id == *id_1 {
+                //         Some(TurnDirection::Left)
+                //     } else {
+                //         unreachable!() // if you reach here then i really fucked up
+                //     }
+                // }
+                _ => {}
+            };
+
+            match turn_direction {
+                TurnDirection::Right => self.player_order.rotate_right(1),
+                TurnDirection::Left => self.player_order.rotate_left(1),
+            };
+
+            let pass_count = self.history
+                .iter()
+                .rev()
+                .take_while(|e| e.action == Action::Pass)
+                .count();
+
+            *current_turn = if pass_count >= self.players.len() - 1 {
+                CurrentTurn::NewTurn {
+                    player_id: self.player_order[0],
+                }
+            } else {
+                CurrentTurn::NormalTurn {
+                    player_id: self.player_order[0],
+                }
             }
+        } else {
+            warn!("Tried to increment turn when game haven't started.")
         }
     }
 
@@ -291,18 +305,19 @@ impl Game {
     // }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
     player_id: Uuid,
     action: Action,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
     Play(Vec<Card>),
     Pass,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ActionError {
     /// Error when attempting to play.
     Play(PlayError),
@@ -311,6 +326,7 @@ pub enum ActionError {
     Pass(PassError),
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PlayError {
     /// The player tried to play nothing.
     NoCards,
@@ -334,6 +350,7 @@ pub enum PlayError {
     MustPlayLowest,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PassError {
     /// The player passed out of turn.
     OutOfTurn,
