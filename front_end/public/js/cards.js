@@ -1,14 +1,13 @@
 "use strict";
 var CardsJS;
 (function (CardsJS) {
-    const opt = {
+    let opt = {
         cardSize: { width: 80, height: 120, padding: 20 },
         animationSpeed: 150,
-        table: 'body',
+        table: document.querySelector('body'),
         cardBack: 'red',
         cardUrl: './assets/img/cards.png'
     };
-    let table = document.querySelector(opt.table);
     let data = new Map();
     function init(options) {
         if (options) {
@@ -18,8 +17,7 @@ var CardsJS;
                 }
             }
         }
-        table = document.querySelector(opt.table);
-        table.style.position = 'relative';
+        opt.table.style.position = 'relative';
     }
     CardsJS.init = init;
     function newDeck() {

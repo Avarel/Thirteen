@@ -1,17 +1,24 @@
 namespace CardsJS {
-    const opt = {
+    export interface Options {
+        cardSize?: { width: number, height: number, padding: number },
+        animationSpeed?: number,
+        table?: HTMLElement,
+        cardBack?: 'red' | 'black',
+        cardUrl?: string
+    }
+
+    let opt: Options = {
         cardSize: { width: 80, height: 120, padding: 20 },
         animationSpeed: 150,
-        table: 'body',
+        table: document.querySelector<HTMLElement>('body')!,
         cardBack: 'red',
         cardUrl: './assets/img/cards.png'
     };
 
-    let table = document.querySelector<HTMLElement>(opt.table)!;
 
     let data = new Map<HTMLElement, Card>();
 
-    export function init(options: any): void {
+    export function init(options: Options | undefined): void {
         if (options) {
             for (let i in options) {
                 if (opt.hasOwnProperty(i)) {
@@ -20,8 +27,7 @@ namespace CardsJS {
             }
         }
 
-        table = document.querySelector<HTMLElement>(opt.table)!;
-        table.style.position = 'relative';
+        opt.table!.style.position = 'relative';
     }
 
     export function newDeck(): Card[] {
@@ -49,8 +55,8 @@ namespace CardsJS {
         constructor(public id: number) {
             this.element = document.createElement('div');
             this.element.className = 'card';
-            this.element.style.width = `${opt.cardSize.width}px`;
-            this.element.style.height = `${opt.cardSize.height}px`;
+            this.element.style.width = `${opt.cardSize!.width}px`;
+            this.element.style.height = `${opt.cardSize!.height}px`;
             this.element.style.backgroundImage = `url(${opt.cardUrl})`;
             this.element.style.position = 'absolute';
             this.element.style.cursor = 'pointer';
@@ -156,8 +162,8 @@ namespace CardsJS {
             if (up) {
                 let rank = this.rank;
 
-                let xpos = -(rank + 1) * opt.cardSize.width;
-                let ypos = opt.cardSize.height;
+                let xpos = -(rank + 1) * opt.cardSize!.width;
+                let ypos = opt.cardSize!.height;
                 switch (this.suit) {
                     case Suit.Spades:
                         ypos *= -3;
@@ -174,7 +180,7 @@ namespace CardsJS {
                 }
                 this.element.style.backgroundPosition = `${xpos}px ${ypos}px`;
             } else {
-                let y = opt.cardBack == 'red' ? 0 : -opt.cardSize.height;
+                let y = opt.cardBack == 'red' ? 0 : -opt.cardSize!.height;
                 this.element.style.backgroundPosition = '0px ' + y + 'px';
             }
         }
@@ -393,7 +399,7 @@ namespace CardsJS {
 
         render({ speed, callback }: RenderOptions = {}): void {
             this.sort();
-            speed = (speed || opt.animationSpeed);
+            speed = (speed || opt.animationSpeed!);
             this.calcPosition();
 
             let zIndexCounter = this.zIndex * 52;
@@ -447,8 +453,8 @@ namespace CardsJS {
         }
 
         calcPosition(): void {
-            let left = Math.round(this.position.x - opt.cardSize.width / 2);
-            let top = Math.round(this.position.y - opt.cardSize.height / 2);
+            let left = Math.round(this.position.x - opt.cardSize!.width / 2);
+            let top = Math.round(this.position.y - opt.cardSize!.height / 2);
             let condenseCount = 6;
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
@@ -492,8 +498,8 @@ namespace CardsJS {
         calcPosition(): void {
             let paddingCount = this.array.length - 1;
             let angle = this.angle * (Math.PI / 180);
-            let width = opt.cardSize.width + paddingCount * opt.cardSize.padding * Math.cos(angle);
-            let height = opt.cardSize.height - paddingCount * opt.cardSize.padding * Math.sin(angle);
+            let width = opt.cardSize!.width + paddingCount * opt.cardSize!.padding * Math.cos(angle);
+            let height = opt.cardSize!.height - paddingCount * opt.cardSize!.padding * Math.sin(angle);
             let left = Math.round(this.position.x - width / 2);
             let top = Math.round(this.position.y - height / 2);
 
@@ -501,8 +507,8 @@ namespace CardsJS {
                 let card = this.array[i];
                 card.rotate(this.angle);
                 card.targetPosition = {
-                    top: top - i * opt.cardSize.padding * Math.sin(angle),
-                    left: left + i * opt.cardSize.padding * Math.cos(angle)
+                    top: top - i * opt.cardSize!.padding * Math.sin(angle),
+                    left: left + i * opt.cardSize!.padding * Math.cos(angle)
                 };
             }
         }
@@ -516,8 +522,8 @@ namespace CardsJS {
         dealCounter: number = 0;
 
         calcPosition(): void {
-            let left = Math.round(this.position.x - opt.cardSize.width / 2);
-            let top = Math.round(this.position.y - opt.cardSize.height / 2);
+            let left = Math.round(this.position.x - opt.cardSize!.width / 2);
+            let top = Math.round(this.position.y - opt.cardSize!.height / 2);
 
             for (let i = 0; i < this.array.length; i++) {
                 this.array[i].targetPosition = { top, left };

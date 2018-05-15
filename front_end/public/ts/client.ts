@@ -1,10 +1,65 @@
-import { render } from '../../node_modules/@types/node-sass/index';
+let table = document.querySelector<HTMLElement>('.game')!;
 
-CardsJS.init({ table: '.game' });
+CardsJS.init({ table: table });
 
+// import Card = CardsJS.Card;
+// import Deck = CardsJS.Deck;
+// import Hand = CardsJS.Hand;
+// import Anchor = CardsJS.Anchor
 
+// class Game implements ThirteenAPI.EventHandler {
+//     api: ThirteenAPI.Client;
 
+//     constructor(table: HTMLElement) {
+//         this.api = new ThirteenAPI.Client('ws://127.0.0.1:2794', this);
+//     }
 
+//     onConnect(this: ThirteenAPI.Client, event: Event): void {
+
+//     }
+
+//     onDisconnect(this: ThirteenAPI.Client, event: Event): void {
+
+//     }
+
+//     onQueueUpdate(this: ThirteenAPI.Client, event: ThirteenAPI.QueueUpdateEvent): void {
+
+//     }
+
+//     onReady(this: ThirteenAPI.Client, event: ThirteenAPI.ReadyEvent): void {
+
+//     }
+
+//     onEnd(this: ThirteenAPI.Client, event: ThirteenAPI.EndEvent): void {
+
+//     }
+
+//     onPlay(this: ThirteenAPI.Client, event: ThirteenAPI.PlayEvent): void {
+
+//     }
+
+//     onTurnChange(this: ThirteenAPI.Client, event: ThirteenAPI.TurnChangeEvent): void {
+
+//     }
+
+//     onSuccess(this: ThirteenAPI.Client, event: ThirteenAPI.SuccessEvent): void {
+
+//     }
+
+//     onError(this: ThirteenAPI.Client, event: ThirteenAPI.ErrorEvent): void {
+
+//     }
+
+//     onStatus(this: ThirteenAPI.Client, event: ThirteenAPI.StatusEvent): void {
+
+//     }
+// }
+
+// class Player {
+//     constructor(game: Game, index: number, readonly id: ThirteenAPI.UUID, readonly username: string, public cards: CardsJS.Card[]) {
+
+//     }
+// }
 
 namespace Thirteen {
     export let connection: ThirteenAPI.Client | undefined = undefined;
