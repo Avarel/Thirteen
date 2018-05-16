@@ -7,7 +7,7 @@ namespace CardsJS {
         cardUrl?: string
     }
 
-    let opt: Options = {
+    export let opt: Options = {
         cardSize: { width: 80, height: 120, padding: 20 },
         animationSpeed: 150,
         table: document.querySelector<HTMLElement>('body')!,
@@ -21,7 +21,7 @@ namespace CardsJS {
     export function init(options: Options | undefined): void {
         if (options) {
             for (let i in options) {
-                if (opt.hasOwnProperty(i)) {
+                if (opt.hasOwnProperty(i) && options[i]) {
                     opt[i] = options[i];
                 }
             }
@@ -60,7 +60,7 @@ namespace CardsJS {
             this.element.style.backgroundImage = `url(${opt.cardUrl})`;
             this.element.style.position = 'absolute';
             this.element.style.cursor = 'pointer';
-            this.element.onclick = function(this: HTMLElement, ev: any): void {
+            this.element.onclick = function (this: HTMLElement, ev: any): void {
                 let card: Card = data.get(this)!;
                 if (card.container) {
                     let handler = card.container.clickHandler;
@@ -70,7 +70,7 @@ namespace CardsJS {
                 }
             }
             data.set(this.element, this);
-            table.appendChild(this.element);
+            opt.table!.appendChild(this.element);
             this.face(false);
         }
 
@@ -140,7 +140,7 @@ namespace CardsJS {
             return `${this.suit}${this.rank}`;
         }
 
-        moveTo(x: number, y: number, speed: number, callback?: (this: HTMLElement) => void) {
+        moveTo(x: number, y: number, speed: number) {
             if (speed == 0) {
                 this.element.style.top = `${y}px`;
                 this.element.style.left = `${x}px`;
@@ -258,9 +258,9 @@ namespace CardsJS {
                 return this.left;
             }
             if (this.right !== undefined) {
-                return table.clientWidth - this.right;
+                return opt.table!.clientWidth - this.right;
             }
-            return table.clientWidth / 2 + (this.cx || 0);
+            return opt.table!.clientWidth / 2 + (this.cx || 0);
         }
 
         set x(xPos) {
@@ -272,9 +272,9 @@ namespace CardsJS {
                 return this.top;
             }
             if (this.bottom !== undefined) {
-                return table.clientHeight - this.bottom;
+                return opt.table!.clientHeight - this.bottom;
             }
-            return table.clientHeight / 2 + (this.cy || 0);
+            return opt.table!.clientHeight / 2 + (this.cy || 0);
         }
 
         set y(yPos) {
@@ -385,6 +385,11 @@ namespace CardsJS {
             return removed;
         }
 
+        removeID(id: number): Card | undefined {
+            let i = this.array.findIndex(c => c.id == id);
+            return i != -1 ? this.array.splice(i, 1)[0] : undefined;
+        }
+
         topCard(): Card {
             return this.array[this.array.length - 1];
         }
@@ -440,10 +445,11 @@ namespace CardsJS {
             return 'Container';
         }
 
-        delete() {
+        delete(): void {
             for (let card of this.array) {
                 card.delete();
             }
+            this.array.length = 0;
         }
     }
 

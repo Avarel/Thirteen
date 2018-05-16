@@ -20,6 +20,9 @@ var utils;
     }
     utils.debounce = debounce;
     function rotate(source, shift) {
+        if (shift == -1) {
+            throw new Error("negative shift");
+        }
         let array = [];
         for (let i = 0; i < source.length; i++) {
             array.push(source[(i + shift) % source.length]);
@@ -27,10 +30,14 @@ var utils;
         return array;
     }
     utils.rotate = rotate;
-    function lazy(fn) {
-        let value;
-        return function () {
-            return value || (value = fn());
-        };
+    const firstName = ['Awesome', 'Big', 'Small', 'Smart', 'Good', 'Great', 'Adorable', 'Fancy', 'Witty', 'Fast', 'Eager', 'Nice', 'Lively', 'Gifted', 'Red', 'Cute', 'Clever', 'Crazy', 'Calm', 'Cunning'];
+    const lastName = ['Dog', 'Cat', 'Lion', 'Eagle', 'Bird', 'Panda', 'Fish', 'Bear', 'Hedgehog', 'Quail', 'Chicken', 'Ant', 'Bug', 'Beetle', 'Zebra', 'Horse'];
+    function randomName() {
+        return randomElement(firstName) + ' ' + randomElement(lastName);
     }
+    utils.randomName = randomName;
+    function randomElement(array) {
+        return array[Math.floor(Math.random() * array.length)];
+    }
+    utils.randomElement = randomElement;
 })(utils || (utils = {}));

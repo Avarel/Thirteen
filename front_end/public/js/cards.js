@@ -1,7 +1,7 @@
 "use strict";
 var CardsJS;
 (function (CardsJS) {
-    let opt = {
+    CardsJS.opt = {
         cardSize: { width: 80, height: 120, padding: 20 },
         animationSpeed: 150,
         table: document.querySelector('body'),
@@ -12,12 +12,12 @@ var CardsJS;
     function init(options) {
         if (options) {
             for (let i in options) {
-                if (opt.hasOwnProperty(i)) {
-                    opt[i] = options[i];
+                if (CardsJS.opt.hasOwnProperty(i) && options[i]) {
+                    CardsJS.opt[i] = options[i];
                 }
             }
         }
-        opt.table.style.position = 'relative';
+        CardsJS.opt.table.style.position = 'relative';
     }
     CardsJS.init = init;
     function newDeck() {
@@ -42,9 +42,9 @@ var CardsJS;
             this.hidden = false;
             this.element = document.createElement('div');
             this.element.className = 'card';
-            this.element.style.width = `${opt.cardSize.width}px`;
-            this.element.style.height = `${opt.cardSize.height}px`;
-            this.element.style.backgroundImage = `url(${opt.cardUrl})`;
+            this.element.style.width = `${CardsJS.opt.cardSize.width}px`;
+            this.element.style.height = `${CardsJS.opt.cardSize.height}px`;
+            this.element.style.backgroundImage = `url(${CardsJS.opt.cardUrl})`;
             this.element.style.position = 'absolute';
             this.element.style.cursor = 'pointer';
             this.element.onclick = function (ev) {
@@ -57,7 +57,7 @@ var CardsJS;
                 }
             };
             data.set(this.element, this);
-            table.appendChild(this.element);
+            CardsJS.opt.table.appendChild(this.element);
             this.face(false);
         }
         delete() {
@@ -125,7 +125,7 @@ var CardsJS;
         toString() {
             return `${this.suit}${this.rank}`;
         }
-        moveTo(x, y, speed, callback) {
+        moveTo(x, y, speed) {
             if (speed == 0) {
                 this.element.style.top = `${y}px`;
                 this.element.style.left = `${x}px`;
@@ -145,8 +145,8 @@ var CardsJS;
         face(up) {
             if (up) {
                 let rank = this.rank;
-                let xpos = -(rank + 1) * opt.cardSize.width;
-                let ypos = opt.cardSize.height;
+                let xpos = -(rank + 1) * CardsJS.opt.cardSize.width;
+                let ypos = CardsJS.opt.cardSize.height;
                 switch (this.suit) {
                     case Suit.Spades:
                         ypos *= -3;
@@ -164,7 +164,7 @@ var CardsJS;
                 this.element.style.backgroundPosition = `${xpos}px ${ypos}px`;
             }
             else {
-                let y = opt.cardBack == 'red' ? 0 : -opt.cardSize.height;
+                let y = CardsJS.opt.cardBack == 'red' ? 0 : -CardsJS.opt.cardSize.height;
                 this.element.style.backgroundPosition = '0px ' + y + 'px';
             }
         }
@@ -206,9 +206,9 @@ var CardsJS;
                 return this.left;
             }
             if (this.right !== undefined) {
-                return table.clientWidth - this.right;
+                return CardsJS.opt.table.clientWidth - this.right;
             }
-            return table.clientWidth / 2 + (this.cx || 0);
+            return CardsJS.opt.table.clientWidth / 2 + (this.cx || 0);
         }
         set x(xPos) {
             this.left = xPos;
@@ -218,9 +218,9 @@ var CardsJS;
                 return this.top;
             }
             if (this.bottom !== undefined) {
-                return table.clientHeight - this.bottom;
+                return CardsJS.opt.table.clientHeight - this.bottom;
             }
-            return table.clientHeight / 2 + (this.cy || 0);
+            return CardsJS.opt.table.clientHeight / 2 + (this.cy || 0);
         }
         set y(yPos) {
             this.top = yPos;
@@ -301,6 +301,10 @@ var CardsJS;
             }
             return removed;
         }
+        removeID(id) {
+            let i = this.array.findIndex(c => c.id == id);
+            return i != -1 ? this.array.splice(i, 1)[0] : undefined;
+        }
         topCard() {
             return this.array[this.array.length - 1];
         }
@@ -312,7 +316,7 @@ var CardsJS;
         }
         render({ speed, callback } = {}) {
             this.sort();
-            speed = (speed || opt.animationSpeed);
+            speed = (speed || CardsJS.opt.animationSpeed);
             this.calcPosition();
             let zIndexCounter = this.zIndex * 52;
             for (let i = 0; i < this.array.length; i++) {
@@ -349,6 +353,7 @@ var CardsJS;
             for (let card of this.array) {
                 card.delete();
             }
+            this.array.length = 0;
         }
     }
     CardsJS.Container = Container;
@@ -357,8 +362,8 @@ var CardsJS;
             super(options);
         }
         calcPosition() {
-            let left = Math.round(this.position.x - opt.cardSize.width / 2);
-            let top = Math.round(this.position.y - opt.cardSize.height / 2);
+            let left = Math.round(this.position.x - CardsJS.opt.cardSize.width / 2);
+            let top = Math.round(this.position.y - CardsJS.opt.cardSize.height / 2);
             let condenseCount = 6;
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
@@ -399,16 +404,16 @@ var CardsJS;
         calcPosition() {
             let paddingCount = this.array.length - 1;
             let angle = this.angle * (Math.PI / 180);
-            let width = opt.cardSize.width + paddingCount * opt.cardSize.padding * Math.cos(angle);
-            let height = opt.cardSize.height - paddingCount * opt.cardSize.padding * Math.sin(angle);
+            let width = CardsJS.opt.cardSize.width + paddingCount * CardsJS.opt.cardSize.padding * Math.cos(angle);
+            let height = CardsJS.opt.cardSize.height - paddingCount * CardsJS.opt.cardSize.padding * Math.sin(angle);
             let left = Math.round(this.position.x - width / 2);
             let top = Math.round(this.position.y - height / 2);
             for (let i = 0; i < this.array.length; i++) {
                 let card = this.array[i];
                 card.rotate(this.angle);
                 card.targetPosition = {
-                    top: top - i * opt.cardSize.padding * Math.sin(angle),
-                    left: left + i * opt.cardSize.padding * Math.cos(angle)
+                    top: top - i * CardsJS.opt.cardSize.padding * Math.sin(angle),
+                    left: left + i * CardsJS.opt.cardSize.padding * Math.cos(angle)
                 };
             }
         }
@@ -423,8 +428,8 @@ var CardsJS;
             this.dealCounter = 0;
         }
         calcPosition() {
-            let left = Math.round(this.position.x - opt.cardSize.width / 2);
-            let top = Math.round(this.position.y - opt.cardSize.height / 2);
+            let left = Math.round(this.position.x - CardsJS.opt.cardSize.width / 2);
+            let top = Math.round(this.position.y - CardsJS.opt.cardSize.height / 2);
             for (let i = 0; i < this.array.length; i++) {
                 this.array[i].targetPosition = { top, left };
             }

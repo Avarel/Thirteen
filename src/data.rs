@@ -35,9 +35,6 @@ pub enum Response {
 		first_turn: bool,
 		new_pattern: bool,
 	},
-	STATUS {
-		message: String,
-	},
 	SUCCESS {
 		message: SuccessCode,
 	},

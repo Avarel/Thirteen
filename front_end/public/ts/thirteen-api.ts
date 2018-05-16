@@ -35,17 +35,13 @@ namespace ThirteenAPI {
         type: 'SUCCESS',
         message: 'PLAY' | 'PASS'
     }
-    export interface StatusEvent {
-        type: 'STATUS',
-        message: string
-    }
     export interface ErrorEvent {
         type: 'ERROR',
         message: 'OUT_OF_TURN' | 'NO_CARDS' | 'MUST_PLAY_LOWEST' | 'MUST_START_NEW_PATTERN' | 'INVALID_CARD' | 'INVALID_PATTERN' | 'BAD_CARD' | 'BAD_PATTERN'
     }
     export type PayloadIn = IdentifyEvent | QueueUpdateEvent | ReadyEvent
         | PlayEvent | EndEvent | SuccessEvent
-        | TurnChangeEvent | StatusEvent | ErrorEvent;
+        | TurnChangeEvent | ErrorEvent;
 
     export interface JoinGame {
         type: 'JOIN_GAME',
@@ -76,7 +72,6 @@ namespace ThirteenAPI {
         onTurnChange?(this: Client, event: TurnChangeEvent): void;
         onSuccess?(this: Client, event: SuccessEvent): void;
         onError?(this: Client, event: ErrorEvent): void;
-        onStatus?(this: Client, event: StatusEvent): void;
     }
 
     export class Client {
@@ -87,8 +82,8 @@ namespace ThirteenAPI {
             console.log('Connecting to server...');
 
             this.ws = new WebSocket(address, 'thirteen-game');
-            this.ws.onopen = event => { if (this.handler.onConnect) this.handler.onConnect.call(this, event) };
-            this.ws.onclose = event => { if (this.handler.onDisconnect) this.handler.onDisconnect.call(this, event) };
+            this.ws.onopen = event => { if (this.handler.onConnect) this.handler.onConnect.call(handler, event) };
+            this.ws.onclose = event => { if (this.handler.onDisconnect) this.handler.onDisconnect.call(handler, event) };
             this.ws.onmessage = event => this.onReceive(event);
         }
 
@@ -108,34 +103,33 @@ namespace ThirteenAPI {
 
             let payload = JSON.parse(event.data) as PayloadIn;
 
+            console.log(payload);
+
             switch (payload.type) {
                 case 'IDENTIFY':
                     this.id = payload.id;
-                    if (handler.onIdentify) handler.onIdentify.call(this, payload);
+                    if (handler.onIdentify) handler.onIdentify.call(handler, payload);
                     break;
                 case 'QUEUE_UPDATE':
-                    if (handler.onQueueUpdate) handler.onQueueUpdate.call(this, payload);
+                    if (handler.onQueueUpdate) handler.onQueueUpdate.call(handler, payload);
                     break;
                 case 'READY':
-                    if (handler.onReady) handler.onReady.call(this, payload);
+                    if (handler.onReady) handler.onReady.call(handler, payload);
                     break;
                 case 'END':
-                    if (handler.onEnd) handler.onEnd.call(this, payload);
+                    if (handler.onEnd) handler.onEnd.call(handler, payload);
                     break;
                 case 'PLAY':
-                    if (handler.onPlay) handler.onPlay.call(this, payload);
+                    if (handler.onPlay) handler.onPlay.call(handler, payload);
                     break;
                 case 'TURN_CHANGE':
-                    if (handler.onTurnChange) handler.onTurnChange.call(this, payload);
+                    if (handler.onTurnChange) handler.onTurnChange.call(handler, payload);
                     break;
                 case 'SUCCESS':
-                    if (handler.onSuccess) handler.onSuccess.call(this, payload);
+                    if (handler.onSuccess) handler.onSuccess.call(handler, payload);
                     break;
                 case 'ERROR':
-                    if (handler.onError) handler.onError.call(this, payload);
-                    break;
-                case 'STATUS':
-                    if (handler.onStatus) handler.onStatus.call(this, payload);
+                    if (handler.onError) handler.onError.call(handler, payload);
                     break;
             }
         }

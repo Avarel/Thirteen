@@ -10,7 +10,7 @@
   user-select: none;
   transition: all ease-in-out 0.2s; }
   .button:hover {
-    transform: scale(1.1, 1.1); }
+    transform: scale(1.05, 1.05); }
   .button:active {
     transform: none;
     background: #cacaca; }
@@ -34,7 +34,7 @@ body {
   display: flex;
   flex-direction: column;
   font-family: Lato, sans-serif;
-  background: url("./assets/img/bg.png"), linear-gradient(to bottom, #3d4046, #1c1e22); }
+  background: url(./assets/img/bg-tile.png), linear-gradient(to bottom, #3d4046, #1c1e22); }
   .hero header {
     height: 80px;
     width: 100vw;
@@ -71,6 +71,7 @@ body {
       display: flex;
       flex-direction: column;
       background: rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
       color: white;
       overflow: hidden; }
       .hero section.content .box .game {
@@ -82,9 +83,10 @@ body {
         .hero section.content .box .game .login-box {
           width: 90vw;
           max-width: 300px;
-          margin: auto;
+          margin: 20px auto 0px;
           padding: 20px;
-          background: rgba(0, 0, 0, 0.5); }
+          background: rgba(0, 0, 0, 0.5);
+          border-radius: 5px; }
           .hero section.content .box .game .login-box .login-selection {
             display: flex;
             align-items: center;
@@ -107,27 +109,6 @@ body {
           .hero section.content .box .game .login-box .button {
             flex: 0 1;
             color: black; }
-        .hero section.content .box .game .name-tag {
-          position: absolute;
-          text-align: center;
-          user-select: none;
-          text-shadow: 0 0 10px black;
-          z-index: 1000;
-          display: none; }
-          .hero section.content .box .game .name-tag:nth-child(1) {
-            bottom: 0px;
-            width: 100%; }
-          .hero section.content .box .game .name-tag:nth-child(2) {
-            top: 0px;
-            width: 100%; }
-          .hero section.content .box .game .name-tag:nth-child(3) {
-            writing-mode: vertical-lr;
-            left: 0px;
-            height: 100%; }
-          .hero section.content .box .game .name-tag:nth-child(4) {
-            writing-mode: vertical-rl;
-            right: 0px;
-            height: 100%; }
       .hero section.content .box .status {
         display: flex;
         align-items: center;
@@ -140,8 +121,7 @@ body {
           text-align: center; }
         .hero section.content .box .status .button {
           border-radius: 0;
-          background: #1e1e1e;
-          display: none; }
+          background: #1e1e1e; }
           .hero section.content .box .status .button:active {
             transform: none; }
         .hero section.content .box .status .button#play {

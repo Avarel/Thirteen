@@ -7,9 +7,9 @@ var ThirteenAPI;
             console.log('Connecting to server...');
             this.ws = new WebSocket(address, 'thirteen-game');
             this.ws.onopen = event => { if (this.handler.onConnect)
-                this.handler.onConnect.call(this, event); };
+                this.handler.onConnect.call(handler, event); };
             this.ws.onclose = event => { if (this.handler.onDisconnect)
-                this.handler.onDisconnect.call(this, event); };
+                this.handler.onDisconnect.call(handler, event); };
             this.ws.onmessage = event => this.onReceive(event);
         }
         send(data) {
@@ -24,43 +24,40 @@ var ThirteenAPI;
                 return;
             }
             let payload = JSON.parse(event.data);
+            console.log(payload);
             switch (payload.type) {
                 case 'IDENTIFY':
                     this.id = payload.id;
                     if (handler.onIdentify)
-                        handler.onIdentify.call(this, payload);
+                        handler.onIdentify.call(handler, payload);
                     break;
                 case 'QUEUE_UPDATE':
                     if (handler.onQueueUpdate)
-                        handler.onQueueUpdate.call(this, payload);
+                        handler.onQueueUpdate.call(handler, payload);
                     break;
                 case 'READY':
                     if (handler.onReady)
-                        handler.onReady.call(this, payload);
+                        handler.onReady.call(handler, payload);
                     break;
                 case 'END':
                     if (handler.onEnd)
-                        handler.onEnd.call(this, payload);
+                        handler.onEnd.call(handler, payload);
                     break;
                 case 'PLAY':
                     if (handler.onPlay)
-                        handler.onPlay.call(this, payload);
+                        handler.onPlay.call(handler, payload);
                     break;
                 case 'TURN_CHANGE':
                     if (handler.onTurnChange)
-                        handler.onTurnChange.call(this, payload);
+                        handler.onTurnChange.call(handler, payload);
                     break;
                 case 'SUCCESS':
                     if (handler.onSuccess)
-                        handler.onSuccess.call(this, payload);
+                        handler.onSuccess.call(handler, payload);
                     break;
                 case 'ERROR':
                     if (handler.onError)
-                        handler.onError.call(this, payload);
-                    break;
-                case 'STATUS':
-                    if (handler.onStatus)
-                        handler.onStatus.call(this, payload);
+                        handler.onError.call(handler, payload);
                     break;
             }
         }

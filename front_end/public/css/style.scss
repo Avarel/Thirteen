@@ -14,7 +14,7 @@ $status-bar-color: rgb(50, 50, 50);
     user-select: none;
     transition: all ease-in-out 0.2s;
     &:hover {
-        transform: scale(1.1, 1.1);
+        transform: scale(1.05, 1.05);
     }
     &:active {
         transform: none;
@@ -44,7 +44,7 @@ body {
     display: flex;
     flex-direction: column;
     font-family: Lato, sans-serif;
-    background: url("./assets/img/bg.png"), linear-gradient(to bottom, #3d4046, #1c1e22);
+    background: url(./assets/img/bg-tile.png), linear-gradient(to bottom, #3d4046, #1c1e22);
     header {
         height: 80px;
         width: 100vw;
@@ -87,6 +87,7 @@ body {
             display: flex;
             flex-direction: column;
             background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
             color: white;
             overflow: hidden;
 
@@ -100,9 +101,10 @@ body {
                 .login-box {
                     width: 90vw;
                     max-width: 300px;
-                    margin: auto;
+                    margin: 20px auto 0px;
                     padding: 20px;
                     background: rgba(0, 0, 0, 0.5);
+                    border-radius: 5px;
 
                     .login-selection {
                         display: flex;
@@ -135,33 +137,33 @@ body {
                     }
                 }
     
-                .name-tag {
-                    position: absolute;
-                    text-align: center;
-                    user-select: none;
-                    text-shadow: 0 0 10px black;
-                    z-index: 1000;
-                    display: none;
+                // .name-tag {
+                //     position: absolute;
+                //     text-align: center;
+                //     user-select: none;
+                //     text-shadow: 0 0 10px black;
+                //     z-index: 1000;
+                //     display: none;
                     
-                    &:nth-child(1) {
-                        bottom: 0px;
-                        width: 100%;
-                    }
-                    &:nth-child(2) {
-                        top: 0px;
-                        width: 100%;
-                    }
-                    &:nth-child(3) {
-                        writing-mode: vertical-lr;
-                        left: 0px;
-                        height: 100%;
-                    }
-                    &:nth-child(4) {
-                        writing-mode: vertical-rl;
-                        right: 0px;
-                        height: 100%;
-                    }
-                }
+                //     &:nth-child(1) {
+                //         bottom: 0px;
+                //         width: 100%;
+                //     }
+                //     &:nth-child(2) {
+                //         top: 0px;
+                //         width: 100%;
+                //     }
+                //     &:nth-child(3) {
+                //         writing-mode: vertical-lr;
+                //         left: 0px;
+                //         height: 100%;
+                //     }
+                //     &:nth-child(4) {
+                //         writing-mode: vertical-rl;
+                //         right: 0px;
+                //         height: 100%;
+                //     }
+                // }
             }
             .status {
                 display: flex;
@@ -178,7 +180,6 @@ body {
                 .button {
                     border-radius: 0;
                     background: rgb(30, 30, 30);
-                    display: none;
                     &:active {
                         transform: none;
                     }
