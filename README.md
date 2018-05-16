@@ -9,3 +9,4 @@ web technologies such as Pug/SCSS/TypeScript.
 
 ## Rules
 The rules for the game can be found on the [Wikipedia page](https://en.wikipedia.org/wiki/Ti%E1%BA%BFn_l%C3%AAn).
+There are some variations to the rules but the core of the game is faithful to the original rules.

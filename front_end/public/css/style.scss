@@ -21,7 +21,6 @@ $status-bar-color: rgb(50, 50, 50);
         background: rgb(202, 202, 202);
     }
     &.disabled {
-        transform: scale(0.9, 0.9);
         background: rgb(99, 99, 99);
     }
 }
@@ -105,6 +104,7 @@ body {
                     padding: 20px;
                     background: rgba(0, 0, 0, 0.5);
                     border-radius: 5px;
+                    color: black;
 
                     .login-selection {
                         display: flex;
@@ -119,6 +119,17 @@ body {
                             border: none;
                             flex: 1;
                             margin-right: 10px;
+
+                            &:hover {
+                                transform: scale(1.05, 1.05);
+                            }
+
+                            &:disabled {
+                                background: gray;
+                                color: #585858;
+                            }
+
+                            transition: all ease-in-out 0.2s;
                         }
 
                         select#game-size-select {
@@ -128,42 +139,24 @@ body {
                             font-size: 15px;
                             border: none;
                             border-radius: 5px;
+
+                            &:hover {
+                                transform: scale(1.05, 1.05);
+                            }
+
+                            &:disabled {
+                                background: gray;
+                                color: #585858;
+                            }
+
+                            transition: all ease-in-out 0.2s;
                         }
                     }
                     
                     .button {
                         flex: 0 1;
-                        color: black;
                     }
                 }
-    
-                // .name-tag {
-                //     position: absolute;
-                //     text-align: center;
-                //     user-select: none;
-                //     text-shadow: 0 0 10px black;
-                //     z-index: 1000;
-                //     display: none;
-                    
-                //     &:nth-child(1) {
-                //         bottom: 0px;
-                //         width: 100%;
-                //     }
-                //     &:nth-child(2) {
-                //         top: 0px;
-                //         width: 100%;
-                //     }
-                //     &:nth-child(3) {
-                //         writing-mode: vertical-lr;
-                //         left: 0px;
-                //         height: 100%;
-                //     }
-                //     &:nth-child(4) {
-                //         writing-mode: vertical-rl;
-                //         right: 0px;
-                //         height: 100%;
-                //     }
-                // }
             }
             .status {
                 display: flex;
