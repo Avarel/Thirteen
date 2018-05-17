@@ -12,7 +12,8 @@ function updateStatus(msg) {
 class Game {
     constructor(table) {
         this.table = table;
-        this.api = new ThirteenAPI.Client('ws://127.0.0.1:2794', this);
+        // wss://gnarbot.xyz/thirteen/ws // 127.0.0.1:2794
+        this.api = new ThirteenAPI.Client('wss://gnarbot.xyz/thirteen/ws', this);
         this.players = [];
         this.dealDeck = new Deck();
         this.history = new GameHistory(3);
