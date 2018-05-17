@@ -29,5 +29,5 @@ mod utils;
 fn main() {
     env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
 
-    server::start_server();
+    server_rw::start_server();
 }

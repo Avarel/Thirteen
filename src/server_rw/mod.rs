@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 use uuid::Uuid;
 use ws;
 
-use self::client::{Client, ClientHandler};
+use self::client::{ClientHandler, RcClient, WeakClient, SharedClient};
 use self::instance::Instance;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
@@ -22,19 +22,16 @@ pub fn start_server() {
     let server = Rc::new(Server {
         pending_instances: HashMap::new().into(),
         running_instances: HashMap::new().into(),
+        clients: HashMap::new().into(),
     });
 
-    ws::listen("127.0.0.1:2794", |out| ClientHandler {
-        id: Uuid::new_v4(),
-        server: Rc::downgrade(&server),
-        instance: None,
-        out: out.into(),
-    }).unwrap();
+    ws::listen("127.0.0.1:2794", |out| server.new_client(out)).unwrap();
 }
 
 pub struct Server {
     pending_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
     running_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
+    clients: RefCell<HashMap<Uuid, WeakClient>>,
 }
 
 trait SharedServer {
@@ -43,6 +40,8 @@ trait SharedServer {
     fn find_or_new_instance(&self, size: usize) -> Weak<Instance>;
     fn upgrade_instance(&self, id: Uuid);
     fn remove_instance(&self, id: Uuid);
+    fn new_client(&self, out: ws::Sender) -> RcClient;
+    fn remove_client(&self, id: Uuid, disconnect: bool);
 }
 
 impl SharedServer for Rc<Server> {
@@ -84,6 +83,29 @@ impl SharedServer for Rc<Server> {
             .unwrap()
             .destroy()
     }
+
+    fn new_client(&self, out: ws::Sender) -> RcClient {
+        let client = RcClient(Rc::new(ClientHandler {
+            id: Uuid::new_v4(),
+            server: Rc::downgrade(self),
+            instance: None.into(),
+            out: out.into(),
+        }));
+
+        debug!("Creating a new client (id: {}).", client.id);
+
+        self.clients.borrow_mut().insert(client.id, RcClient::downgrade(&client));
+        client
+    }
+
+    fn remove_client(&self, id: Uuid, disconnect: bool) {
+        let client = self.clients.borrow_mut().remove(&id).unwrap();
+        if disconnect {
+            let temp = client.upgrade().unwrap();
+            debug!("Client (id: {}) kicked by the server.", temp.id);
+            temp.disconnect();
+        }
+    }
 }
 
 impl SharedServer for Weak<Server> {
@@ -104,6 +126,14 @@ impl SharedServer for Weak<Server> {
     }
 
     fn remove_instance(&self, id: Uuid) {
-        self.upgrade().unwrap().remove_instance(id);
+        self.upgrade().unwrap().remove_instance(id)
+    }
+
+    fn new_client(&self, out: ws::Sender) -> RcClient {
+        self.upgrade().unwrap().new_client(out)
+    }
+
+    fn remove_client(&self, id: Uuid, disconnect: bool) {
+        self.upgrade().unwrap().remove_client(id, disconnect)
     }
 }

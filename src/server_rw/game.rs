@@ -362,6 +362,7 @@ pub enum PassError {
 #[derive(Debug)]
 pub struct Player {
     id: Uuid,
+    name: String,
     cards: Vec<Card>,
 }
 

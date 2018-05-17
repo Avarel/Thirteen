@@ -6,6 +6,7 @@ use game::Game;
 
 use super::Server;
 use data::{Request, Response};
+use super::client::{WeakClient, SharedClient};
 use ws;
 
 pub struct Instance {
@@ -14,7 +15,7 @@ pub struct Instance {
     server: Weak<Server>,
 
     game: RefCell<Game>,
-    connections: RefCell<HashMap<Uuid, Weak<ws::Sender>>>,
+    connections: RefCell<HashMap<Uuid, WeakClient>>,
 }
 
 
@@ -41,12 +42,19 @@ impl Instance {
 
 pub trait SharedInstance {
     fn process(&self, client_id: Uuid, data: Request);
+    fn add_client(&self, client: WeakClient, name: String);
     fn remove_client(&self, client_id: Uuid, disconnect: bool);
 }
 
 impl SharedInstance for Rc<Instance> {
     fn process(&self, client_id: Uuid, data: Request) {
-        
+        debug!("Received request from client (id: {})", client_id);
+    }
+
+    fn add_client(&self, client: WeakClient, name: String) {
+        let id = client.upgrade().unwrap().id;
+        debug!("Connecting client (id: {}) to instance (id: {}, size: {})", id, self.id, self.size);
+        self.connections.borrow_mut().insert(id, client);
     }
 
     fn remove_client(&self, client_id: Uuid, disconnect: bool) {
@@ -55,7 +63,9 @@ impl SharedInstance for Rc<Instance> {
             .remove(&client_id)
             .expect("Tried to remove an invalid client");
         if disconnect {
-            client.upgrade().unwrap().close(ws::CloseCode::Normal).expect("Error when closing connection");
+            let temp = client.upgrade().unwrap();
+            temp.clear_instance();
+            temp.disconnect();
         }
     }
 }
@@ -63,6 +73,10 @@ impl SharedInstance for Rc<Instance> {
 impl SharedInstance for Weak<Instance> {
     fn process(&self, client_id: Uuid, data: Request) {
         self.upgrade().unwrap().process(client_id, data);
+    }
+
+    fn add_client(&self, client: WeakClient, name: String) {
+        self.upgrade().unwrap().add_client(client, name);
     }
 
     fn remove_client(&self, client_id: Uuid, disconnect: bool) {
