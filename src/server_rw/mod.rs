@@ -26,8 +26,12 @@ impl Server {
     pub fn new_instance(&mut self, size: usize) -> Uuid {
         let instance = Instance::new(size, self as *mut Server);
         let id = instance.id;
-        self.running_instances.insert(instance.id, instance);
+        self.pending_instances.insert(instance.id, instance);
         id
+    }
+
+    pub fn get_client(&mut self, id: Uuid) -> Option<&mut ClientHandler> {
+        self.clients.get_mut(&id).map(|c| unsafe { &mut **c })
     }
 
     pub fn get_instance(&mut self, id: Uuid) -> &mut Instance {
@@ -38,7 +42,7 @@ impl Server {
     }
 
     pub fn find_instance(&mut self, size: usize) -> Option<Uuid> {
-        self.pending_instances.values_mut().find(|i| i.size == size).map(|i| i.id)
+        self.pending_instances.values().find(|i| i.size == size).map(|i| i.id)
     }
 
     pub fn find_or_new_instance(&mut self, size: usize) -> Uuid {

@@ -15,7 +15,7 @@ pub struct Instance {
     server: *mut Server,
 
     game: Game,
-    pub connections: HashMap<Uuid, *mut ClientHandler>,
+    connections: HashMap<Uuid, *mut ClientHandler>,
 }
 
 impl Instance {

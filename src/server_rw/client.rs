@@ -90,8 +90,8 @@ impl ws::Handler for ClientHandler {
 impl ClientHandler {
     pub fn clear_instance(&mut self) {
         let server = unsafe { &mut *self.server };
-        self.instance_id
-            .map(|o| server.get_instance(o)).map(|i| {
+            self.instance_id
+                .map(|o| server.get_instance(o)).map(|i| {
             debug!(
                 "Client (id: {}) disconnected from instance (id: {}).",
                 self.id,
