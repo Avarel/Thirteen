@@ -16,25 +16,13 @@ use self::instance::Instance;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
 
-pub fn start_server() {
-    info!("Starting server.");
-
-    let server = Rc::new(Server {
-        pending_instances: HashMap::new().into(),
-        running_instances: HashMap::new().into(),
-        clients: HashMap::new().into(),
-    });
-
-    ws::listen("127.0.0.1:2794", |out| server.new_client(out)).unwrap();
-}
-
 pub struct Server {
-    pending_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
-    running_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
-    clients: RefCell<HashMap<Uuid, WeakClient>>,
+    pub pending_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
+    pub running_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
+    pub clients: RefCell<HashMap<Uuid, WeakClient>>,
 }
 
-trait SharedServer {
+pub trait SharedServer {
     fn new_instance(&self, size: usize) -> Weak<Instance>;
     fn find_instance(&self, size: usize) -> Option<Weak<Instance>>;
     fn find_or_new_instance(&self, size: usize) -> Weak<Instance>;

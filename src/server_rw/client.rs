@@ -120,6 +120,7 @@ impl ws::Handler for RcClient {
 
 pub trait SharedClient {
     fn clear_instance(&self);
+    fn send(&self, data: &Response);
     fn disconnect(&self);
 }
 
@@ -134,6 +135,12 @@ impl SharedClient for RcClient {
             )
         });
         *temp = None;
+    }
+
+    fn send(&self, data: &Response) {
+        self.out
+			.send(serde_json::to_string(data).expect("Can not serialize"))
+			.expect("Error while sending");
     }
 
     fn disconnect(&self) {

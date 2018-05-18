@@ -18,7 +18,6 @@ pub struct Instance {
     connections: RefCell<HashMap<Uuid, WeakClient>>,
 }
 
-
 impl Instance {
     pub fn new(size: usize, server: Weak<Server>) -> Self {
         let id = Uuid::new_v4();
@@ -44,6 +43,7 @@ pub trait SharedInstance {
     fn process(&self, client_id: Uuid, data: Request);
     fn add_client(&self, client: WeakClient, name: String);
     fn remove_client(&self, client_id: Uuid, disconnect: bool);
+    fn broadcast(&self, data: &Response);
 }
 
 impl SharedInstance for Rc<Instance> {
@@ -68,6 +68,10 @@ impl SharedInstance for Rc<Instance> {
             temp.disconnect();
         }
     }
+
+    fn broadcast(&self, data: &Response) {
+        self.connections.borrow().values().map(|c| c.upgrade().unwrap()).for_each(|c| c.send(data));
+    }
 }
 
 impl SharedInstance for Weak<Instance> {
@@ -81,5 +85,9 @@ impl SharedInstance for Weak<Instance> {
 
     fn remove_client(&self, client_id: Uuid, disconnect: bool) {
         self.upgrade().unwrap().remove_client(client_id, disconnect);
+    }
+
+    fn broadcast(&self, data: &Response) {
+        self.upgrade().unwrap().broadcast(data);
     }
 }
