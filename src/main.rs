@@ -26,19 +26,19 @@ pub mod server_rw;
 
 mod utils;
 
-use std::{rc::Rc, collections::HashMap};
-use server_rw::{Server, SharedServer};
+use std::collections::HashMap;
+use server_rw::Server;
 
 fn main() -> ws::Result<()> {
     env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
     
     info!("Starting server.");
 
-    let server = Rc::new(server_rw::Server {
-        pending_instances: HashMap::new().into(),
-        running_instances: HashMap::new().into(),
-        clients: HashMap::new().into(),
-    });
+    let mut server = Server {
+        pending_instances: HashMap::new(),
+        running_instances: HashMap::new(),
+        clients: HashMap::new(),
+    };
 
     ws::listen("127.0.0.1:2794", |out| server.new_client(out))
 }

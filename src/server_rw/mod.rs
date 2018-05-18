@@ -11,117 +11,70 @@ use std::rc::{Rc, Weak};
 use uuid::Uuid;
 use ws;
 
-use self::client::{ClientHandler, RcClient, WeakClient, SharedClient};
+use self::client::ClientHandler;
 use self::instance::Instance;
 
 pub const PROTOCOL: &'static str = "thirteen-game";
 
 pub struct Server {
-    pub pending_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
-    pub running_instances: RefCell<HashMap<Uuid, Rc<Instance>>>,
-    pub clients: RefCell<HashMap<Uuid, WeakClient>>,
+    pub pending_instances: HashMap<Uuid, Instance>,
+    pub running_instances: HashMap<Uuid, Instance>,
+    pub clients: HashMap<Uuid, *mut ClientHandler>,
 }
 
-pub trait SharedServer {
-    fn new_instance(&self, size: usize) -> Weak<Instance>;
-    fn find_instance(&self, size: usize) -> Option<Weak<Instance>>;
-    fn find_or_new_instance(&self, size: usize) -> Weak<Instance>;
-    fn upgrade_instance(&self, id: Uuid);
-    fn remove_instance(&self, id: Uuid);
-    fn new_client(&self, out: ws::Sender) -> RcClient;
-    fn remove_client(&self, id: Uuid, disconnect: bool);
-}
-
-impl SharedServer for Rc<Server> {
-    fn new_instance(&self, size: usize) -> Weak<Instance> {
-        let instance = Instance::new(size, Rc::downgrade(self)).into();
-        let weak = Rc::downgrade(&instance);
-        self.running_instances
-            .borrow_mut()
-            .insert(instance.id, instance);
-        weak
+impl Server {
+    pub fn new_instance(&mut self, size: usize) -> Uuid {
+        let instance = Instance::new(size, self as *mut Server);
+        let id = instance.id;
+        self.running_instances.insert(instance.id, instance);
+        id
     }
 
-    fn find_instance(&self, size: usize) -> Option<Weak<Instance>> {
-        self.pending_instances
-            .borrow()
-            .values()
-            .find(|i| i.size == size)
-            .map(Rc::downgrade)
+    pub fn get_instance(&mut self, id: Uuid) -> &mut Instance {
+        match self.running_instances.get_mut(&id) {
+            Some(i) => i,
+            None => self.pending_instances.get_mut(&id).unwrap()
+        }
     }
 
-    fn find_or_new_instance(&self, size: usize) -> Weak<Instance> {
+    pub fn find_instance(&mut self, size: usize) -> Option<Uuid> {
+        self.pending_instances.values_mut().find(|i| i.size == size).map(|i| i.id)
+    }
+
+    pub fn find_or_new_instance(&mut self, size: usize) -> Uuid {
         self.find_instance(size)
             .unwrap_or_else(|| self.new_instance(size))
     }
 
-    fn upgrade_instance(&self, id: Uuid) {
-        self.running_instances
-            .borrow_mut()
-            .insert(id, self.pending_instances.borrow_mut().remove(&id).unwrap());
+    pub fn upgrade_instance(&mut self, id: Uuid) {
+        self.running_instances.insert(id, self.pending_instances.remove(&id).unwrap());
     }
 
-    fn remove_instance(&self, id: Uuid) {
-        Rc::try_unwrap(
-            self.running_instances
-                .borrow_mut()
-                .remove(&id)
-                .expect("Tried to remove invalid instance"),
-        ).ok()
-            .unwrap()
-            .destroy()
+    pub fn remove_instance(&mut self, id: Uuid) {
+        self.running_instances.remove(&id).expect("Tried to remove invalid instance").destroy()
     }
 
-    fn new_client(&self, out: ws::Sender) -> RcClient {
-        let client = RcClient(Rc::new(ClientHandler {
+    // THIS MUST BE GIVEN TO SOMETHING THAT WILL PERSISTENTLY OWN IT
+    pub fn new_client(&mut self, out: ws::Sender) -> ClientHandler {
+        let mut client = ClientHandler {
             id: Uuid::new_v4(),
-            server: Rc::downgrade(self),
-            instance: None.into(),
-            out: out.into(),
-        }));
+            server: self as *mut Server,
+            instance_id: None,
+            out: out,
+        };
 
         debug!("Creating a new client (id: {}).", client.id);
 
-        self.clients.borrow_mut().insert(client.id, RcClient::downgrade(&client));
+        self.clients.insert(client.id, &mut client as *mut ClientHandler);
         client
     }
 
-    fn remove_client(&self, id: Uuid, disconnect: bool) {
-        let client = self.clients.borrow_mut().remove(&id).unwrap();
+    pub fn remove_client(&mut self, id: Uuid, disconnect: bool) {
+        let client = self.clients.remove(&id).unwrap();
         if disconnect {
-            let temp = client.upgrade().unwrap();
+            let temp = unsafe { &mut *client };
             debug!("Client (id: {}) kicked by the server.", temp.id);
             temp.disconnect();
         }
-    }
-}
-
-impl SharedServer for Weak<Server> {
-    fn new_instance(&self, size: usize) -> Weak<Instance> {
-        self.upgrade().unwrap().new_instance(size)
-    }
-
-    fn find_instance(&self, size: usize) -> Option<Weak<Instance>> {
-        self.upgrade().unwrap().find_instance(size)
-    }
-
-    fn find_or_new_instance(&self, size: usize) -> Weak<Instance> {
-        self.upgrade().unwrap().find_or_new_instance(size)
-    }
-
-    fn upgrade_instance(&self, id: Uuid) {
-        self.upgrade().unwrap().upgrade_instance(id)
-    }
-
-    fn remove_instance(&self, id: Uuid) {
-        self.upgrade().unwrap().remove_instance(id)
-    }
-
-    fn new_client(&self, out: ws::Sender) -> RcClient {
-        self.upgrade().unwrap().new_client(out)
-    }
-
-    fn remove_client(&self, id: Uuid, disconnect: bool) {
-        self.upgrade().unwrap().remove_client(id, disconnect)
     }
 }

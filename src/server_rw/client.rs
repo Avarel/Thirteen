@@ -1,5 +1,5 @@
-use super::instance::{Instance, SharedInstance};
-use super::{Server, SharedServer};
+use super::instance::Instance;
+use super::Server;
 use data::{Request, Response};
 use serde_json;
 use std::cell::RefCell;
@@ -10,68 +10,36 @@ use ws;
 
 pub struct ClientHandler {
     pub id: Uuid,
-    pub server: Weak<Server>,
-    pub instance: RefCell<Option<Weak<Instance>>>,
+    pub server: *mut Server,
+    pub instance_id: Option<Uuid>,
 
-    pub out: Rc<ws::Sender>,
+    pub out: ws::Sender,
 }
 
-#[derive(Clone)]
-pub struct RcClient(pub Rc<ClientHandler>);
-
-impl Deref for RcClient {
-    type Target = Rc<ClientHandler>;
-
-    fn deref(&self) -> &Rc<ClientHandler> {
-        &self.0
-    }
-}
-
-impl RcClient {
-    pub fn downgrade(this: &RcClient) -> WeakClient {
-        WeakClient(Rc::downgrade(this))
-    }
-}
-
-#[derive(Clone)]
-pub struct WeakClient(pub Weak<ClientHandler>);
-
-impl Deref for WeakClient {
-    type Target = Weak<ClientHandler>;
-
-    fn deref(&self) -> &Weak<ClientHandler> {
-        &self.0
-    }
-}
-
-impl WeakClient {
-    pub fn upgrade(&self) -> Option<RcClient> {
-        self.0.upgrade().map(RcClient)
-    }
-}
-
-impl ws::Handler for RcClient {
+impl ws::Handler for ClientHandler {
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
         match msg {
             ws::Message::Text(buf) => match serde_json::from_str::<Request>(&buf) {
                 Ok(Request::JOIN_GAME { name, game_size }) => {
-                    let instance = self.server.find_or_new_instance(game_size);
-                    instance.add_client(RcClient::downgrade(self), name);
-                    *self.instance.borrow_mut() = Some(instance);
+                    let server = unsafe { &mut *self.server };
+                    let instance_id = server.find_or_new_instance(game_size);
+                    server.get_instance(instance_id).add_client(self as *mut ClientHandler, name);
+                    self.instance_id = Some(instance_id);
+                    debug!("Successfully setted connecting instance.");
                     Ok(())
                 }
                 Ok(Request::EXIT_GAME) => {
-                    self.instance
-                        .borrow()
-                        .as_ref()
+                    let server = unsafe { &mut *self.server };
+                    self.instance_id
+                        .map(|o| server.get_instance(o))
                         .map(|i| i.remove_client(self.id, false));
                     self.clear_instance();
                     Ok(())
                 }
                 Ok(data) => {
-                    self.instance
-                        .borrow()
-                        .as_ref()
+                    let server = unsafe { &mut *self.server };
+                    self.instance_id
+                        .map(|o| server.get_instance(o))
                         .map(|i| i.process(self.id, data));
                     Ok(())
                 }
@@ -101,11 +69,12 @@ impl ws::Handler for RcClient {
     }
 
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
-        self.instance
-            .borrow()
-            .as_ref()
-            .map(|instance| instance.remove_client(self.id, false));
-        self.server.remove_client(self.id, false);
+        let server = unsafe { &mut *self.server };
+        self.instance_id
+            .map(|o| server.get_instance(o))
+            .map(|i| i.remove_client(self.id, false));
+
+        server.remove_client(self.id, false);
 
         match code {
             ws::CloseCode::Normal => debug!("Client (id: {}) has closed the connection.", self.id),
@@ -118,34 +87,35 @@ impl ws::Handler for RcClient {
     }
 }
 
-pub trait SharedClient {
-    fn clear_instance(&self);
-    fn send(&self, data: &Response);
-    fn disconnect(&self);
-}
-
-impl SharedClient for RcClient {
-    fn clear_instance(&self) {
-        let mut temp = self.instance.borrow_mut();
-        temp.as_ref().map(|i| {
+impl ClientHandler {
+    pub fn clear_instance(&mut self) {
+        let server = unsafe { &mut *self.server };
+        self.instance_id
+            .map(|o| server.get_instance(o)).map(|i| {
             debug!(
                 "Client (id: {}) disconnected from instance (id: {}).",
                 self.id,
-                i.upgrade().unwrap().id
+                i.id
             )
         });
-        *temp = None;
+        self.instance_id = None;
     }
 
-    fn send(&self, data: &Response) {
+    pub fn send(&self, data: &Response) {
         self.out
-			.send(serde_json::to_string(data).expect("Can not serialize"))
-			.expect("Error while sending");
+            .send(serde_json::to_string(data).expect("Can not serialize"))
+            .expect("Error while sending");
     }
 
-    fn disconnect(&self) {
+    pub fn disconnect(&self) {
         self.out
             .close(ws::CloseCode::Normal)
             .expect("Error when closing connection");
+    }
+}
+
+impl Drop for ClientHandler {
+    fn drop(&mut self) {
+        debug!("Dropping client (id: {}).", self.id);
     }
 }

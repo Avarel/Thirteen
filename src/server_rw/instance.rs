@@ -6,28 +6,28 @@ use game::Game;
 
 use super::Server;
 use data::{Request, Response};
-use super::client::{WeakClient, SharedClient};
+use super::client::ClientHandler;
 use ws;
 
 pub struct Instance {
     pub id: Uuid,
     pub size: usize,
-    server: Weak<Server>,
+    server: *mut Server,
 
-    game: RefCell<Game>,
-    connections: RefCell<HashMap<Uuid, WeakClient>>,
+    game: Game,
+    pub connections: HashMap<Uuid, *mut ClientHandler>,
 }
 
 impl Instance {
-    pub fn new(size: usize, server: Weak<Server>) -> Self {
+    pub fn new(size: usize, server: *mut Server) -> Self {
         let id = Uuid::new_v4();
         debug!("Creating a new instance (id: {}, size: {}).", id, size);
         Instance {
             id,
             size,
             server,
-            game: RefCell::new(Game::new()),
-            connections: RefCell::new(HashMap::with_capacity(size)),
+            game: Game::new(),
+            connections: HashMap::with_capacity(size),
         }
     }
 
@@ -39,55 +39,41 @@ impl Instance {
     }
 }
 
-pub trait SharedInstance {
-    fn process(&self, client_id: Uuid, data: Request);
-    fn add_client(&self, client: WeakClient, name: String);
-    fn remove_client(&self, client_id: Uuid, disconnect: bool);
-    fn broadcast(&self, data: &Response);
-}
-
-impl SharedInstance for Rc<Instance> {
-    fn process(&self, client_id: Uuid, data: Request) {
+impl Instance {
+    pub fn process(&mut self, client_id: Uuid, data: Request) {
         debug!("Received request from client (id: {})", client_id);
     }
 
-    fn add_client(&self, client: WeakClient, name: String) {
-        let id = client.upgrade().unwrap().id;
+    pub fn add_client(&mut self, client: *mut ClientHandler, name: String) {
+        let id = unsafe { &*client }.id;
+
         debug!("Connecting client (id: {}) to instance (id: {}, size: {})", id, self.id, self.size);
-        self.connections.borrow_mut().insert(id, client);
+        self.connections.insert(id, client);
+
+        self.broadcast(&Response::QUEUE_UPDATE {
+			size: self.connections.len(),
+			goal: self.size,
+		});
     }
 
-    fn remove_client(&self, client_id: Uuid, disconnect: bool) {
+    pub fn remove_client(&mut self, client_id: Uuid, disconnect: bool) {
         let client = self.connections
-            .borrow_mut()
             .remove(&client_id)
             .expect("Tried to remove an invalid client");
         if disconnect {
-            let temp = client.upgrade().unwrap();
+            let temp = unsafe { &mut *client };
             temp.clear_instance();
             temp.disconnect();
         }
     }
 
     fn broadcast(&self, data: &Response) {
-        self.connections.borrow().values().map(|c| c.upgrade().unwrap()).for_each(|c| c.send(data));
+        self.connections.values().map(|c| unsafe { &**c }).for_each(|c| c.send(data));
     }
 }
 
-impl SharedInstance for Weak<Instance> {
-    fn process(&self, client_id: Uuid, data: Request) {
-        self.upgrade().unwrap().process(client_id, data);
-    }
-
-    fn add_client(&self, client: WeakClient, name: String) {
-        self.upgrade().unwrap().add_client(client, name);
-    }
-
-    fn remove_client(&self, client_id: Uuid, disconnect: bool) {
-        self.upgrade().unwrap().remove_client(client_id, disconnect);
-    }
-
-    fn broadcast(&self, data: &Response) {
-        self.upgrade().unwrap().broadcast(data);
+impl Drop for Instance {
+    fn drop(&mut self) {
+        debug!("Dropping instance (id: {}).", self.id);
     }
 }
