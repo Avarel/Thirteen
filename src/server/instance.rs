@@ -113,7 +113,6 @@ impl Instance {
                     });
                     self.broadcast_turn_change();
                 }
-                
             }
             Request::PASS => {
                 if let Err(err) = self.game.handle(Event {

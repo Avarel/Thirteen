@@ -199,7 +199,10 @@ impl Game {
             .map(|p| (p.id, p.cards[0]))
             .unwrap();
 
-        let position = self.player_order.iter().position(|id| *id == player_id).unwrap();
+        let position = self.player_order
+            .iter()
+            .position(|id| *id == player_id)
+            .unwrap();
         self.player_order.rotate_right(position);
 
         self.state = GameState::Ready {

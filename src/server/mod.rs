@@ -36,12 +36,15 @@ impl Server {
     pub fn get_instance(&mut self, id: Uuid) -> Option<&mut Instance> {
         match self.running_instances.get_mut(&id) {
             Some(i) => Some(i),
-            None => self.pending_instances.get_mut(&id)
+            None => self.pending_instances.get_mut(&id),
         }
     }
 
     pub fn find_instance(&mut self, size: usize) -> Option<Uuid> {
-        self.pending_instances.values().find(|i| i.size == size).map(|i| i.id)
+        self.pending_instances
+            .values()
+            .find(|i| i.size == size)
+            .map(|i| i.id)
     }
 
     pub fn find_or_new_instance(&mut self, size: usize) -> Uuid {
@@ -50,11 +53,15 @@ impl Server {
     }
 
     pub fn upgrade_instance(&mut self, id: Uuid) {
-        self.running_instances.insert(id, self.pending_instances.remove(&id).unwrap());
+        self.running_instances
+            .insert(id, self.pending_instances.remove(&id).unwrap());
     }
 
     pub fn remove_instance(&mut self, id: Uuid) {
-        self.running_instances.remove(&id).expect("Tried to remove invalid instance").destroy()
+        self.running_instances
+            .remove(&id)
+            .expect("Tried to remove invalid instance")
+            .destroy()
     }
 
     // THIS MUST BE GIVEN TO SOMETHING THAT WILL PERSISTENTLY OWN IT
@@ -68,7 +75,8 @@ impl Server {
 
         debug!("Creating a new client (id: {}).", client.id);
 
-        self.clients.insert(client.id, &mut client as *mut ClientHandler);
+        self.clients
+            .insert(client.id, &mut client as *mut ClientHandler);
         client
     }
 
