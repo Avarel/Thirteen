@@ -1,5 +1,14 @@
 use std::{cmp, fmt};
 
+
+#[inline]
+/// Return a deck partioned into 4 equal hands, which are all sorted.
+pub fn sorted_partitioned_deck() -> [[Card; 13]; 4] {
+    let mut decks = partitioned_deck();
+    decks.iter_mut().for_each(|d| d.sort());
+    decks
+}
+
 #[inline]
 /// Return a deck partioned into 4 equal hands.
 pub fn partitioned_deck() -> [[Card; 13]; 4] {

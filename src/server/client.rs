@@ -18,29 +18,31 @@ pub struct ClientHandler {
 
 impl ws::Handler for ClientHandler {
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
+        let server = unsafe { &mut *self.server };
         match msg {
             ws::Message::Text(buf) => match serde_json::from_str::<Request>(&buf) {
                 Ok(Request::JOIN_GAME { name, game_size }) => {
-                    let server = unsafe { &mut *self.server };
                     let instance_id = server.find_or_new_instance(game_size);
-                    server.get_instance(instance_id).add_client(self as *mut ClientHandler, name);
+                    server
+                        .get_instance(instance_id)
+                        .unwrap()
+                        .add_client(self as *mut ClientHandler, name);
                     self.instance_id = Some(instance_id);
                     debug!("Successfully setted connecting instance.");
                     Ok(())
                 }
                 Ok(Request::EXIT_GAME) => {
-                    let server = unsafe { &mut *self.server };
-                    self.instance_id
-                        .map(|o| server.get_instance(o))
-                        .map(|i| i.remove_client(self.id, false));
+                    self.instance_id.map(|o| {
+                        server
+                            .get_instance(o)
+                            .map(|i| i.remove_client(self.id, false))
+                    });
                     self.clear_instance();
                     Ok(())
                 }
                 Ok(data) => {
-                    let server = unsafe { &mut *self.server };
                     self.instance_id
-                        .map(|o| server.get_instance(o))
-                        .map(|i| i.process(self.id, data));
+                        .map(|o| server.get_instance(o).map(|i| i.process(self.id, data)));
                     Ok(())
                 }
                 Err(_) => Err(ws::Error::new(
@@ -70,9 +72,11 @@ impl ws::Handler for ClientHandler {
 
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
         let server = unsafe { &mut *self.server };
-        self.instance_id
-            .map(|o| server.get_instance(o))
-            .map(|i| i.remove_client(self.id, false));
+        self.instance_id.map(|o| {
+            server
+                .get_instance(o)
+                .map(|i| i.remove_client(self.id, false))
+        });
 
         server.remove_client(self.id, false);
 
@@ -90,13 +94,13 @@ impl ws::Handler for ClientHandler {
 impl ClientHandler {
     pub fn clear_instance(&mut self) {
         let server = unsafe { &mut *self.server };
-            self.instance_id
-                .map(|o| server.get_instance(o)).map(|i| {
-            debug!(
-                "Client (id: {}) disconnected from instance (id: {}).",
-                self.id,
-                i.id
-            )
+        self.instance_id.map(|o| {
+            server.get_instance(o).map(|i| {
+                debug!(
+                    "Client (id: {}) disconnected from instance (id: {}).",
+                    self.id, i.id
+                )
+            })
         });
         self.instance_id = None;
     }

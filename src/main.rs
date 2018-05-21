@@ -1,7 +1,7 @@
 #![feature(iterator_step_by, vec_remove_item)]
 #![allow(dead_code)]
 
-#[macro_use] 
+#[macro_use]
 extern crate log;
 extern crate env_logger;
 
@@ -15,22 +15,24 @@ extern crate rand;
 extern crate uuid;
 extern crate ws;
 
-pub mod data;
 pub mod cards;
-pub mod game;
-pub mod server;
+pub mod data;
+// pub mod game;
+// pub mod server;
 
-// rewrite of server backend, not in effect yet
-pub mod server_rw;
+pub mod server;
 
 mod utils;
 
+use server::Server;
 use std::collections::HashMap;
-use server_rw::Server;
 
 fn main() -> ws::Result<()> {
-    env_logger::Builder::new().filter_level(log::LevelFilter::Debug).init();
-    
+    env_logger::Builder::new()
+        .filter_level(log::LevelFilter::Debug)
+        .filter_module("ws::handler", log::LevelFilter::Info)
+        .init();
+
     info!("Starting server.");
 
     let mut server = Server {

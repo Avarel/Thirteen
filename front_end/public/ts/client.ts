@@ -174,6 +174,7 @@ class Game implements ThirteenAPI.EventHandler {
     }
 
     onError(event: ThirteenAPI.ErrorEvent): void {
+        console.log(event.message);
         switch (event.message) {
             case 'INVALID_CARD':
                 updateStatus('Invalid cards. (Client sent invalid ids)');
@@ -194,7 +195,7 @@ class Game implements ThirteenAPI.EventHandler {
                 updateStatus('You must start a new pattern.');
                 break;
             case 'NO_CARDS':
-                updateStatus("You can't play nothing.");
+                updateStatus("You have to play a card.");
                 break;
             case 'MUST_PLAY_LOWEST':
                 updateStatus('You must play your lowest card for this turn.');
@@ -311,6 +312,7 @@ class Player {
 
     delete(): void {
         this.cards.delete();
+        if (this.queue) this.queue.delete();
         this.tag.remove();
     }
 }
@@ -346,3 +348,5 @@ namespace Header {
 }
 
 updateStatus('Press Connect to look for a game!');
+
+//TODO add resize

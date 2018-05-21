@@ -3,7 +3,6 @@ mod game;
 mod instance;
 
 use data::{Request, Response};
-use game::*;
 use serde_json;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -34,10 +33,10 @@ impl Server {
         self.clients.get_mut(&id).map(|c| unsafe { &mut **c })
     }
 
-    pub fn get_instance(&mut self, id: Uuid) -> &mut Instance {
+    pub fn get_instance(&mut self, id: Uuid) -> Option<&mut Instance> {
         match self.running_instances.get_mut(&id) {
-            Some(i) => i,
-            None => self.pending_instances.get_mut(&id).unwrap()
+            Some(i) => Some(i),
+            None => self.pending_instances.get_mut(&id)
         }
     }
 

@@ -143,6 +143,7 @@ class Game {
         }
     }
     onError(event) {
+        console.log(event.message);
         switch (event.message) {
             case 'INVALID_CARD':
                 updateStatus('Invalid cards. (Client sent invalid ids)');
@@ -163,7 +164,7 @@ class Game {
                 updateStatus('You must start a new pattern.');
                 break;
             case 'NO_CARDS':
-                updateStatus("You can't play nothing.");
+                updateStatus("You have to play a card.");
                 break;
             case 'MUST_PLAY_LOWEST':
                 updateStatus('You must play your lowest card for this turn.');
@@ -263,6 +264,8 @@ class Player {
     }
     delete() {
         this.cards.delete();
+        if (this.queue)
+            this.queue.delete();
         this.tag.remove();
     }
 }
@@ -295,3 +298,4 @@ var Header;
     Header.loginBox = loginBox;
 })(Header || (Header = {}));
 updateStatus('Press Connect to look for a game!');
+//TODO add resize
