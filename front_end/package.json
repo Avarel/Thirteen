@@ -33,7 +33,7 @@
   "devDependencies": {
     "@types/cookie-parser": "^1.4.1",
     "@types/express": "^4.11.1",
-    "@types/node-sass-middleware": "0.0.30",
+    "@types/node-sass-middleware": "^0.0.30",
     "typescript": "^2.8.3"
   }
 }
