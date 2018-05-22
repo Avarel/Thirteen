@@ -23,6 +23,7 @@ class Game {
         this.dealDeck.render();
         this.playButton = document.querySelector('#play');
         this.passButton = document.querySelector('#pass');
+        window.onresize = utils.debounce(() => this.renderAll({ speed: 0 }), 500);
     }
     get selfPlayer() {
         return this.players[0];
@@ -80,6 +81,7 @@ class Game {
             this.dealDeck.display(false);
             this.renderAll();
         });
+        updateStatus("The game has started! Wait for your turn!");
     }
     onEnd(event) {
         if (event.victor_id == this.selfPlayer.id) {
@@ -143,6 +145,7 @@ class Game {
         }
     }
     onError(event) {
+        console.log(event.message);
         switch (event.message) {
             case 'INVALID_CARD':
                 updateStatus('Invalid cards. (Client sent invalid ids)');
@@ -163,7 +166,7 @@ class Game {
                 updateStatus('You must start a new pattern.');
                 break;
             case 'NO_CARDS':
-                updateStatus("You can't play nothing.");
+                updateStatus("You have to play a card.");
                 break;
             case 'MUST_PLAY_LOWEST':
                 updateStatus('You must play your lowest card for this turn.');
@@ -177,6 +180,7 @@ class Game {
         this.history.clear();
         this.playButton.hidden = true;
         this.passButton.hidden = true;
+        window.onresize = null;
         updateStatus('Press Connect to look for a game!');
     }
 }
@@ -263,6 +267,8 @@ class Player {
     }
     delete() {
         this.cards.delete();
+        if (this.queue)
+            this.queue.delete();
         this.tag.remove();
     }
 }
@@ -295,3 +301,4 @@ var Header;
     Header.loginBox = loginBox;
 })(Header || (Header = {}));
 updateStatus('Press Connect to look for a game!');
+//TODO add resize

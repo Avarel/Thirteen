@@ -4,18 +4,18 @@ use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Pattern {
+    Invalid,
     Single,
     Repeat(u8),
     Sequence(u8),
     SequencePair(u8),
-    Invalid, // Invalid play
 }
 
 impl Pattern {
     /// Check for a sequence of pairs.
     /// ie: [3, 3, 4, 4, 5, 5] of a certain length >= 3 (6 cards)
     fn check_sequence_pair(source: &[Card]) -> bool {
-        source.len() >= 6 && source.last().unwrap().vc_value() != 12
+        source.len() % 2 == 0 && source.len() >= 6 && source.last().unwrap().vc_value() != 12
             && source
                 .chunks(2)
                 .all(|pair| pair[0].vc_value() == pair[1].vc_value())
@@ -115,16 +115,18 @@ pub struct Game {
 #[derive(Copy, Clone, Debug)]
 pub enum GameState {
     Setup,
-    Started {
+    Ready {
         current_turn: CurrentTurn,
-        turn_direction: TurnDirection,
+        turn_direction: Option<TurnDirection>,
     },
     Ended {
-        victor_id: Uuid
-    }
+        victor_id: Uuid,
+    },
 }
 
 impl Game {
+    /// Create a new game instance.
+    #[inline]
     pub fn new() -> Self {
         Game {
             player_order: Vec::new(),
@@ -134,6 +136,7 @@ impl Game {
         }
     }
 
+    #[inline]
     pub fn players(&self) -> Vec<&Player> {
         self.player_order
             .iter()
@@ -141,9 +144,111 @@ impl Game {
             .collect()
     }
 
+    pub fn get_player(&self, id: Uuid) -> Option<&Player> {
+        self.players.get(&id)
+    }
+
+    pub fn add_player(&mut self, id: Uuid, name: String) {
+        if self.ready() || self.ended() {
+            unimplemented!("Attempting to add players after game started or ended")
+        }
+
+        self.players.insert(
+            id,
+            Player {
+                id,
+                name,
+                cards: Vec::with_capacity(13),
+            },
+        );
+        self.player_order.push(id);
+    }
+
+    pub fn remove_player(&mut self, id: Uuid) {
+        self.players.remove(&id);
+        self.player_order.remove_item(&id);
+
+        // Change the turn if the player had the current turn.
+        if let GameState::Ready { current_turn, .. } = self.state {
+            match current_turn {
+                CurrentTurn::FirstTurn { player_id, .. } => {
+                    if player_id == id {
+                        self.set_up_first_turn();
+                    }
+                }
+                CurrentTurn::NormalTurn { player_id }
+                | CurrentTurn::NewTurn { player_id } => {
+                    if player_id == id {
+                        self.increment_turn();
+                    }
+                }
+                _ => {}
+            };
+        }
+    }
+
+    pub fn start(&mut self) {
+        if self.ready() || self.ended() || self.players.len() == 0 {
+            unimplemented!("Attempting to start after game started or ended or zero players")
+        }
+
+        use cards::sorted_partitioned_deck;
+        self.players
+            .values_mut()
+            .zip(sorted_partitioned_deck().iter())
+            .for_each(|(player, deck)| {
+                player.cards = deck.to_vec();
+            });
+
+        self.set_up_first_turn();
+    }
+
+    fn set_up_first_turn(&mut self) {
+        let (player_id, required_card) = self.players
+            .values()
+            .min_by_key(|p| p.cards[0])
+            .map(|p| (p.id, p.cards[0]))
+            .unwrap();
+
+        let position = self.player_order
+            .iter()
+            .position(|id| *id == player_id)
+            .unwrap();
+        self.player_order.rotate_left(position);
+
+        self.state = GameState::Ready {
+            current_turn: CurrentTurn::FirstTurn {
+                player_id: self.player_order[0],
+                required_card,
+            },
+            turn_direction: None,
+        };
+    }
+
+    #[inline]
+    pub fn state(&self) -> &GameState {
+        &self.state
+    }
+
+    #[inline]
+    pub fn ready(&self) -> bool {
+        match self.state {
+            GameState::Ready { .. } => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn ended(&self) -> bool {
+        match self.state {
+            GameState::Ended { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn handle(&mut self, mut event: Event) -> Result<(), ActionError> {
-        if let GameState::Started { current_turn, .. } = self.state {
-             // Check if the player did it in turn.
+        if let GameState::Ready { current_turn, .. } = self.state {
+            // Check if the player did it in turn.
             match current_turn {
                 CurrentTurn::FirstTurn { player_id, .. }
                 | CurrentTurn::NormalTurn { player_id }
@@ -186,9 +291,9 @@ impl Game {
                         }
                     } else if let CurrentTurn::NewTurn { .. } = current_turn {
                     } else {
-                        let previous_cards = match self.last_play().action {
+                        let previous_cards = match self.last_play().unwrap().action {
                             Action::Pass => unreachable!(),
-                            Action::Play(ref previous_cards) => previous_cards
+                            Action::Play(ref previous_cards) => previous_cards,
                         };
 
                         let previous_pattern = Pattern::of(previous_cards);
@@ -202,82 +307,76 @@ impl Game {
                             _ if current_pattern != previous_pattern => {
                                 return Err(ActionError::Play(PlayError::BadPattern))
                             }
-                            _ if current_cards.last().unwrap() > previous_cards.last().unwrap() => {}
+                            _ if current_cards.last().unwrap() > previous_cards.last().unwrap() => {
+                            }
                             _ => return Err(ActionError::Play(PlayError::BadCard)),
                         };
                     }
+
+                    self.players
+                        .get_mut(&event.player_id)
+                        .unwrap()
+                        .remove_cards(current_cards);
                 }
             }
 
+            let id = event.player_id;
             self.history.push(event);
-            self.increment_turn();
+
+            if self.players[&id].cards.is_empty() {
+                self.state = GameState::Ended { victor_id: id }
+            } else {
+                self.increment_turn();
+            }
         }
-       
+
         Ok(())
     }
 
-
-    pub fn has_started(&self) -> bool {
-        match self.state {
-            GameState::Started { .. } => true,
-            _ => false,
-        }
-    }
-
-    pub fn last_play(&self) -> &Event {
+    pub fn last_play(&self) -> Option<&Event> {
         self.history
             .iter()
             .rev()
             .skip_while(|e| e.action == Action::Pass)
             .nth(0)
-            .unwrap()
     }
 
-    /* 
-    let (position, player_id, required_card) = self.players
-                        .values()
-                        .enumerate()
-                        .min_by_key(|(_, p)| p.cards[0])
-                        .map(|(i, p)| (i, p.id, p.cards[0]))
-                        .unwrap();
-
-                    self.player_order.rotate_right(position);
-
-                    current_turn = CurrentTurn::FirstTurn {
-                        player_id,
-                        required_card,
-                    };*/
-
     fn increment_turn(&mut self) {
-        if let GameState::Started { ref mut current_turn, ref turn_direction } = self.state {
+        if let GameState::Ready {
+            ref mut current_turn,
+            ref mut turn_direction,
+        } = self.state
+        {
             match current_turn {
                 CurrentTurn::FirstTurn { .. } => {
-                    if self.player_order.len() > 2 {
-                        let id_0 = self.player_order[1];
-                        let id_1 = *self.player_order.last().unwrap();
-                        *current_turn = CurrentTurn::SecondMultiTurn {
-                            player_ids: [id_0, id_1],
-                        };
-                        return;
-                    }
+                    // if self.player_order.len() > 2 {
+                    //     let id_0 = self.player_order[1];
+                    //     let id_1 = *self.player_order.last().unwrap();
+                    //     *current_turn = CurrentTurn::SecondMultiTurn {
+                    //         player_ids: [id_0, id_1],
+                    //     };
+                    //     return;
+                    // }
                 }
-                // CurrentTurn::SecondMultiTurn { player_ids: [ref id_0, ref id_1] } => {
-                //     let id = self.history.last().unwrap().player_id;
+                CurrentTurn::SecondMultiTurn {
+                    player_ids: [ref id_0, ref id_1],
+                } => {
+                    let id = self.history.last().unwrap().player_id;
 
-                //     self.turn_direction = if id == *id_0 {
-                //         Some(TurnDirection::Right)
-                //     } else if id == *id_1 {
-                //         Some(TurnDirection::Left)
-                //     } else {
-                //         unreachable!() // if you reach here then i really fucked up
-                //     }
-                // }
+                    *turn_direction = if id == *id_0 {
+                        Some(TurnDirection::Right)
+                    } else if id == *id_1 {
+                        Some(TurnDirection::Left)
+                    } else {
+                        None
+                    };
+                }
                 _ => {}
             };
 
             match turn_direction {
-                TurnDirection::Right => self.player_order.rotate_right(1),
-                TurnDirection::Left => self.player_order.rotate_left(1),
+                Some(TurnDirection::Right) | None => self.player_order.rotate_right(1),
+                Some(TurnDirection::Left) => self.player_order.rotate_left(1),
             };
 
             let pass_count = self.history
@@ -296,19 +395,15 @@ impl Game {
                 }
             }
         } else {
-            warn!("Tried to increment turn when game haven't started.")
+            unimplemented!("Tried to increment turn when game haven't started.")
         }
     }
-
-    // fn pass_count(&self) -> usize {
-    //     self.history.iter().rev().take_while(|e| e.action == Action::Pass).count()
-    // }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
-    player_id: Uuid,
-    action: Action,
+    pub player_id: Uuid,
+    pub action: Action,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -324,6 +419,24 @@ pub enum ActionError {
 
     /// Error when attempting to pass.
     Pass(PassError),
+}
+
+impl ActionError {
+    #[inline]
+    pub fn play_error(self) -> PlayError {
+        match self {
+            ActionError::Play(err) => err,
+            _ => panic!("Tried to get play error but was actually pass error"),
+        }
+    }
+
+    #[inline]
+    pub fn pass_error(self) -> PassError {
+        match self {
+            ActionError::Pass(err) => err,
+            _ => panic!("Tried to get pass error but was actually play error"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -361,9 +474,9 @@ pub enum PassError {
 
 #[derive(Debug)]
 pub struct Player {
-    id: Uuid,
-    name: String,
-    cards: Vec<Card>,
+    pub id: Uuid,
+    pub name: String,
+    pub cards: Vec<Card>,
 }
 
 impl Player {

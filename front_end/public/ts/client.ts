@@ -35,6 +35,7 @@ class Game implements ThirteenAPI.EventHandler {
 
         this.playButton = document.querySelector<HTMLElement>('#play')!;
         this.passButton = document.querySelector<HTMLElement>('#pass')!;
+        window.onresize = utils.debounce(() => this.renderAll({ speed: 0 }), 500);
     }
 
     get selfPlayer(): Player {
@@ -107,6 +108,8 @@ class Game implements ThirteenAPI.EventHandler {
             this.dealDeck.display(false);
             this.renderAll();
         });
+
+        updateStatus("The game has started! Wait for your turn!");
     }
 
     onEnd(event: ThirteenAPI.EndEvent): void {
@@ -174,6 +177,7 @@ class Game implements ThirteenAPI.EventHandler {
     }
 
     onError(event: ThirteenAPI.ErrorEvent): void {
+        console.log(event.message);
         switch (event.message) {
             case 'INVALID_CARD':
                 updateStatus('Invalid cards. (Client sent invalid ids)');
@@ -194,7 +198,7 @@ class Game implements ThirteenAPI.EventHandler {
                 updateStatus('You must start a new pattern.');
                 break;
             case 'NO_CARDS':
-                updateStatus("You can't play nothing.");
+                updateStatus("You have to play a card.");
                 break;
             case 'MUST_PLAY_LOWEST':
                 updateStatus('You must play your lowest card for this turn.');
@@ -209,6 +213,7 @@ class Game implements ThirteenAPI.EventHandler {
         this.history.clear();
         this.playButton.hidden = true;
         this.passButton.hidden = true;
+        window.onresize = null;
         updateStatus('Press Connect to look for a game!');
     }
 }
@@ -311,6 +316,7 @@ class Player {
 
     delete(): void {
         this.cards.delete();
+        if (this.queue) this.queue.delete();
         this.tag.remove();
     }
 }
@@ -346,3 +352,5 @@ namespace Header {
 }
 
 updateStatus('Press Connect to look for a game!');
+
+//TODO add resize
