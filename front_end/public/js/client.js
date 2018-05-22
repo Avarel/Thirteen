@@ -23,6 +23,7 @@ class Game {
         this.dealDeck.render();
         this.playButton = document.querySelector('#play');
         this.passButton = document.querySelector('#pass');
+        window.onresize = utils.debounce(() => this.renderAll({ speed: 0 }), 500);
     }
     get selfPlayer() {
         return this.players[0];
@@ -80,6 +81,7 @@ class Game {
             this.dealDeck.display(false);
             this.renderAll();
         });
+        updateStatus("The game has started! Wait for your turn!");
     }
     onEnd(event) {
         if (event.victor_id == this.selfPlayer.id) {
@@ -178,6 +180,7 @@ class Game {
         this.history.clear();
         this.playButton.hidden = true;
         this.passButton.hidden = true;
+        window.onresize = null;
         updateStatus('Press Connect to look for a game!');
     }
 }

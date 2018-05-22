@@ -2,11 +2,7 @@ mod client;
 mod game;
 mod instance;
 
-use data::{Request, Response};
-use serde_json;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 use uuid::Uuid;
 use ws;
 

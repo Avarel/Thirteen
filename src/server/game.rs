@@ -4,18 +4,18 @@ use uuid::Uuid;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Pattern {
+    Invalid,
     Single,
     Repeat(u8),
     Sequence(u8),
     SequencePair(u8),
-    Invalid, // Invalid play
 }
 
 impl Pattern {
     /// Check for a sequence of pairs.
     /// ie: [3, 3, 4, 4, 5, 5] of a certain length >= 3 (6 cards)
     fn check_sequence_pair(source: &[Card]) -> bool {
-        source.len() >= 6 && source.last().unwrap().vc_value() != 12
+        source.len() % 2 == 0 && source.len() >= 6 && source.last().unwrap().vc_value() != 12
             && source
                 .chunks(2)
                 .all(|pair| pair[0].vc_value() == pair[1].vc_value())
@@ -170,8 +170,12 @@ impl Game {
         // increment turn if the player had the current turn
         if let GameState::Ready { current_turn, .. } = self.state {
             match current_turn {
-                CurrentTurn::FirstTurn { player_id, .. }
-                | CurrentTurn::NormalTurn { player_id }
+                CurrentTurn::FirstTurn { player_id, .. } => {
+                    if player_id == id {
+                        self.set_up_first_turn();
+                    }
+                }
+                CurrentTurn::NormalTurn { player_id }
                 | CurrentTurn::NewTurn { player_id } => {
                     if player_id == id {
                         self.increment_turn();
@@ -188,11 +192,17 @@ impl Game {
         }
 
         use cards::sorted_partitioned_deck;
-        let decks = sorted_partitioned_deck();
-        self.players.iter_mut().enumerate().for_each(|(i, (_, p))| {
-            p.cards = decks[i].to_vec();
-        });
+        self.players
+            .values_mut()
+            .zip(sorted_partitioned_deck().iter())
+            .for_each(|(player, deck)| {
+                player.cards = deck.to_vec();
+            });
 
+        self.set_up_first_turn();
+    }
+
+    fn set_up_first_turn(&mut self) {
         let (player_id, required_card) = self.players
             .values()
             .min_by_key(|p| p.cards[0])
@@ -203,7 +213,7 @@ impl Game {
             .iter()
             .position(|id| *id == player_id)
             .unwrap();
-        self.player_order.rotate_right(position);
+        self.player_order.rotate_left(position);
 
         self.state = GameState::Ready {
             current_turn: CurrentTurn::FirstTurn {
@@ -338,14 +348,14 @@ impl Game {
         {
             match current_turn {
                 CurrentTurn::FirstTurn { .. } => {
-                    if self.player_order.len() > 2 {
-                        let id_0 = self.player_order[1];
-                        let id_1 = *self.player_order.last().unwrap();
-                        *current_turn = CurrentTurn::SecondMultiTurn {
-                            player_ids: [id_0, id_1],
-                        };
-                        return;
-                    }
+                    // if self.player_order.len() > 2 {
+                    //     let id_0 = self.player_order[1];
+                    //     let id_1 = *self.player_order.last().unwrap();
+                    //     *current_turn = CurrentTurn::SecondMultiTurn {
+                    //         player_ids: [id_0, id_1],
+                    //     };
+                    //     return;
+                    // }
                 }
                 CurrentTurn::SecondMultiTurn {
                     player_ids: [ref id_0, ref id_1],

@@ -1,14 +1,11 @@
-use super::game::{Action, ActionError, CurrentTurn, Event, Game, GameState, PassError, PlayError};
+use super::game::{Action, CurrentTurn, Event, Game, GameState, PassError, PlayError};
 use cards::Card;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 use uuid::Uuid;
 
 use super::client::ClientHandler;
 use super::Server;
 use data::{ErrorCode, PlayerData, Request, Response, SuccessCode};
-use ws;
 
 pub struct Instance {
     pub id: Uuid,
@@ -212,6 +209,7 @@ impl Instance {
         }
 
         self.game.remove_player(client_id);
+        self.broadcast_turn_change();
 
         if disconnect {
             let temp = unsafe { &mut *client };

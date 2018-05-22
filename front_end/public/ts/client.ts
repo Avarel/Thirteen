@@ -35,6 +35,7 @@ class Game implements ThirteenAPI.EventHandler {
 
         this.playButton = document.querySelector<HTMLElement>('#play')!;
         this.passButton = document.querySelector<HTMLElement>('#pass')!;
+        window.onresize = utils.debounce(() => this.renderAll({ speed: 0 }), 500);
     }
 
     get selfPlayer(): Player {
@@ -107,6 +108,8 @@ class Game implements ThirteenAPI.EventHandler {
             this.dealDeck.display(false);
             this.renderAll();
         });
+
+        updateStatus("The game has started! Wait for your turn!");
     }
 
     onEnd(event: ThirteenAPI.EndEvent): void {
@@ -210,6 +213,7 @@ class Game implements ThirteenAPI.EventHandler {
         this.history.clear();
         this.playButton.hidden = true;
         this.passButton.hidden = true;
+        window.onresize = null;
         updateStatus('Press Connect to look for a game!');
     }
 }

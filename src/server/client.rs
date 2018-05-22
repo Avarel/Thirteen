@@ -1,10 +1,6 @@
-use super::instance::Instance;
 use super::Server;
 use data::{Request, Response};
 use serde_json;
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::rc::{Rc, Weak};
 use uuid::Uuid;
 use ws;
 
