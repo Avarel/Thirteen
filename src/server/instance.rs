@@ -76,7 +76,7 @@ impl Instance {
         unsafe { &mut *self.server }.upgrade_instance(self.id);
     }
 
-    pub fn process(&mut self, client_id: Uuid, data: Request) {
+    pub fn process(&mut self, cid: Uuid, data: Request) {
         if !self.game.ready() {
             return;
         }
@@ -84,12 +84,12 @@ impl Instance {
         match data {
             Request::PLAY { card_ids } => {
                 if let Err(err) = self.game.handle(Event {
-                    player_id: client_id,
+                    player_id: cid,
                     action: Action::Play(
                         card_ids.iter().cloned().filter_map(Card::from_id).collect(),
                     ),
                 }) {
-                    self.get_client(client_id).send(&Response::ERROR {
+                    self.get_client(cid).send(&Response::ERROR {
                         message: match err.play_error() {
                             PlayError::OutOfTurn => ErrorCode::OUT_OF_TURN,
                             PlayError::NoCards => ErrorCode::NO_CARDS,
@@ -101,11 +101,11 @@ impl Instance {
                         },
                     });
                 } else {
-                    self.get_client(client_id).send(&Response::SUCCESS {
+                    self.get_client(cid).send(&Response::SUCCESS {
                         message: SuccessCode::PLAY,
                     });
                     self.broadcast(&Response::PLAY {
-                        player_id: client_id,
+                        player_id: cid,
                         card_ids: card_ids,
                     });
                     self.broadcast_turn_change();
@@ -113,17 +113,17 @@ impl Instance {
             }
             Request::PASS => {
                 if let Err(err) = self.game.handle(Event {
-                    player_id: client_id,
+                    player_id: cid,
                     action: Action::Pass,
                 }) {
-                    self.get_client(client_id).send(&Response::ERROR {
+                    self.get_client(cid).send(&Response::ERROR {
                         message: match err.pass_error() {
                             PassError::OutOfTurn => ErrorCode::OUT_OF_TURN,
                             PassError::MustPlay => ErrorCode::MUST_START_NEW_PATTERN,
                         },
                     });
                 } else {
-                    self.get_client(client_id).send(&Response::SUCCESS {
+                    self.get_client(cid).send(&Response::SUCCESS {
                         message: SuccessCode::PASS,
                     });
                     self.broadcast_turn_change();
@@ -171,7 +171,11 @@ impl Instance {
         }
     }
 
-    pub fn add_client(&mut self, client: *mut ClientHandler, name: String) {
+    pub fn add_client(&mut self, client: *mut ClientHandler, name: String) -> bool {
+        if self.connections.len() >= self.size {
+            return false;
+        }
+
         let id = unsafe { &*client }.id;
 
         debug!(
@@ -186,18 +190,19 @@ impl Instance {
             goal: self.size,
         });
 
-        if self.connections.len() >= self.size {
+        if self.connections.len() > self.size {
             self.start();
         }
+        true
     }
 
-    pub fn get_client(&mut self, client_id: Uuid) -> &mut ClientHandler {
-        unsafe { &mut *self.connections[&client_id] }
+    pub fn get_client(&mut self, cid: Uuid) -> &mut ClientHandler {
+        unsafe { &mut *self.connections[&cid] }
     }
 
-    pub fn remove_client(&mut self, client_id: Uuid, disconnect: bool) {
+    pub fn remove_client(&mut self, cid: Uuid, disconnect: bool) {
         let client = self.connections
-            .remove(&client_id)
+            .remove(&cid)
             .expect("Tried to remove an invalid client");
 
         if self.game.ready() && self.connections.len() <= 1 {
@@ -208,7 +213,7 @@ impl Instance {
             unsafe { &mut *self.server }.remove_instance(self.id);
         }
 
-        self.game.remove_player(client_id);
+        self.game.remove_player(cid);
         self.broadcast_turn_change();
 
         if disconnect {

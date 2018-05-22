@@ -10,15 +10,12 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-extern crate linked_hash_map;
 extern crate rand;
 extern crate uuid;
 extern crate ws;
 
 pub mod cards;
 pub mod data;
-// pub mod game;
-// pub mod server;
 
 pub mod server;
 

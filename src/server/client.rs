@@ -19,10 +19,15 @@ impl ws::Handler for ClientHandler {
             ws::Message::Text(buf) => match serde_json::from_str::<Request>(&buf) {
                 Ok(Request::JOIN_GAME { name, game_size }) => {
                     let instance_id = server.find_or_new_instance(game_size);
-                    server
+                    let joined = server
                         .get_instance(instance_id)
                         .unwrap()
                         .add_client(self as *mut ClientHandler, name);
+
+                    if !joined {
+                        return Err(ws::Error::new(ws::ErrorKind::Capacity, "Instance is full"));
+                    }
+
                     self.instance_id = Some(instance_id);
                     debug!("Successfully setted connecting instance.");
                     Ok(())

@@ -125,6 +125,7 @@ pub enum GameState {
 }
 
 impl Game {
+    /// Create a new game instance.
     #[inline]
     pub fn new() -> Self {
         Game {
@@ -167,7 +168,7 @@ impl Game {
         self.players.remove(&id);
         self.player_order.remove_item(&id);
 
-        // increment turn if the player had the current turn
+        // Change the turn if the player had the current turn.
         if let GameState::Ready { current_turn, .. } = self.state {
             match current_turn {
                 CurrentTurn::FirstTurn { player_id, .. } => {

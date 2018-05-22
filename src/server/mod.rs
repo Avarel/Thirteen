@@ -60,7 +60,8 @@ impl Server {
             .destroy()
     }
 
-    // THIS MUST BE GIVEN TO SOMETHING THAT WILL PERSISTENTLY OWN IT
+    /// ### Safety
+    /// This must be given to something that will persistently own it.
     pub fn new_client(&mut self, out: ws::Sender) -> ClientHandler {
         let mut client = ClientHandler {
             id: Uuid::new_v4(),
@@ -76,8 +77,8 @@ impl Server {
         client
     }
 
-    pub fn remove_client(&mut self, id: Uuid, disconnect: bool) {
-        let client = self.clients.remove(&id).unwrap();
+    pub fn remove_client(&mut self, cid: Uuid, disconnect: bool) {
+        let client = self.clients.remove(&cid).unwrap();
         if disconnect {
             let temp = unsafe { &mut *client };
             debug!("Client (id: {}) kicked by the server.", temp.id);
