@@ -18,6 +18,14 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn new() -> Self {
+        Server {
+            pending_instances: HashMap::new(),
+            running_instances: HashMap::new(),
+            clients: HashMap::new(),
+        }
+    }
+
     pub fn new_instance(&mut self, size: usize) -> Uuid {
         let instance = Instance::new(size, self as *mut Server);
         let id = instance.id;

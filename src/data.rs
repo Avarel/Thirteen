@@ -8,7 +8,7 @@ pub struct PlayerData {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Response {
 	QUEUE_UPDATE {
@@ -44,14 +44,14 @@ pub enum Response {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum SuccessCode {
 	PASS,
 	PLAY,
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ErrorCode {
 	OUT_OF_TURN,
 	NO_CARDS,
@@ -64,7 +64,7 @@ pub enum ErrorCode {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Request {
 	JOIN_GAME { name: String, game_size: usize },

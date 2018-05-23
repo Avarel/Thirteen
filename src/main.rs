@@ -21,9 +21,6 @@ pub mod server;
 
 mod utils;
 
-use server::Server;
-use std::collections::HashMap;
-
 fn main() -> ws::Result<()> {
     env_logger::Builder::new()
         .filter_level(log::LevelFilter::Debug)
@@ -32,11 +29,7 @@ fn main() -> ws::Result<()> {
 
     info!("Starting server.");
 
-    let mut server = Server {
-        pending_instances: HashMap::new(),
-        running_instances: HashMap::new(),
-        clients: HashMap::new(),
-    };
+    let mut server = server::Server::new();
 
     ws::listen("127.0.0.1:2794", |out| server.new_client(out))
 }

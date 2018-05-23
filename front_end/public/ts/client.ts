@@ -24,7 +24,7 @@ class Game implements ThirteenAPI.EventHandler {
 
     constructor(readonly table: HTMLElement) {
         // wss://gnarbot.xyz/thirteen/ws // ws://127.0.0.1:2794
-        this.api = new ThirteenAPI.Client('ws://127.0.0.1:2794', this);
+        this.api = new ThirteenAPI.Client('wss://gnarbot.xyz/thirteen/ws', this);
         this.players = [];
         this.dealDeck = new Deck();
         this.history = new GameHistory(3);
