@@ -167,7 +167,7 @@ impl Instance {
                 }
                 _ => unimplemented!("SecondTurn is not implemented yet"),
             },
-            _ => unreachable!("Game state is not ready? (After play event)"),
+            _ => {},
         }
     }
 
@@ -214,7 +214,10 @@ impl Instance {
         }
 
         self.game.remove_player(cid);
-        self.broadcast_turn_change();
+        
+        if self.game.ready() {
+            self.broadcast_turn_change();
+        }
 
         if disconnect {
             let temp = unsafe { &mut *client };
