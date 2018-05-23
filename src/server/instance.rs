@@ -167,7 +167,7 @@ impl Instance {
                 }
                 _ => unimplemented!("SecondTurn is not implemented yet"),
             },
-            _ => {},
+            _ => {}
         }
     }
 
@@ -190,7 +190,7 @@ impl Instance {
             goal: self.size,
         });
 
-        if self.connections.len() > self.size {
+        if self.connections.len() == self.size {
             self.start();
         }
         true
@@ -214,7 +214,7 @@ impl Instance {
         }
 
         self.game.remove_player(cid);
-        
+
         if self.game.ready() {
             self.broadcast_turn_change();
         }
