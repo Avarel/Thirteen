@@ -302,7 +302,7 @@ impl Game {
                                 if previous_pattern == Pattern::Single
                                     && previous_cards.last().unwrap().vc_value() == 12 => {}
                             Pattern::SequencePair(n)
-                                if previous_pattern == Pattern::Repeat(n - 2)
+                                if (previous_pattern == Pattern::Repeat(n - 2) || previous_pattern == Pattern::Single)
                                     && previous_cards.last().unwrap().vc_value() == 12 => {}
                             _ if current_pattern != previous_pattern => {
                                 return Err(ActionError::Play(PlayError::BadPattern))
