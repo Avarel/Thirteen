@@ -248,18 +248,24 @@ impl Game {
 
     pub fn handle(&mut self, mut event: Event) -> Result<(), ActionError> {
         if let GameState::Ready { current_turn, .. } = self.state {
+
+            let turn_error_type = match event.action {
+                Action::Play { .. } => ActionError::Play(PlayError::OutOfTurn),
+                Action::Pass => ActionError::Pass(PassError::OutOfTurn)
+            };
+
             // Check if the player did it in turn.
             match current_turn {
                 CurrentTurn::FirstTurn { player_id, .. }
                 | CurrentTurn::NormalTurn { player_id }
                 | CurrentTurn::NewTurn { player_id } => {
                     if player_id != event.player_id {
-                        return Err(ActionError::Pass(PassError::OutOfTurn));
+                        return Err(turn_error_type);
                     }
                 }
                 CurrentTurn::SecondMultiTurn { player_ids } => {
                     if !player_ids.contains(&event.player_id) {
-                        return Err(ActionError::Pass(PassError::OutOfTurn));
+                        return Err(turn_error_type);
                     }
                 }
             };
