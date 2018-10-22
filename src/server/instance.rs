@@ -217,6 +217,11 @@ impl Instance {
 
         if self.game.ready() {
             self.broadcast_turn_change();
+        } else {
+            self.broadcast(&Response::QUEUE_UPDATE {
+                size: self.connections.len(),
+                goal: self.size,
+            });
         }
 
         if disconnect {
