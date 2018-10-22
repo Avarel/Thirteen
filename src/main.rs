@@ -1,4 +1,4 @@
-#![feature(iterator_step_by, vec_remove_item)]
+#![feature(vec_remove_item)]
 #![allow(dead_code)]
 
 #[macro_use]
