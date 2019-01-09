@@ -3,16 +3,16 @@
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
+// extern crate env_logger;
 
-extern crate serde;
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
+// extern crate serde;
+// extern crate serde_json;
+// #[macro_use]
+// extern crate serde_derive;
 
-extern crate rand;
-extern crate uuid;
-extern crate ws;
+// extern crate rand;
+// extern crate uuid;
+// extern crate ws;
 
 pub mod cards;
 pub mod data;

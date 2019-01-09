@@ -3,6 +3,7 @@ name = "thirteen_server"
 version = "0.2.0"
 authors = ["Avarel <avarelpm@gmail.com>"]
 publish = false
+edition = "2018"
 
 [dependencies]
 log = "^0.4.1"

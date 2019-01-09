@@ -17,8 +17,7 @@ pub fn partitioned_deck() -> [[Card; 13]; 4] {
 /// Return a new shuffled deck of cards.
 pub fn shuffled_deck() -> [Card; 52] {
     let mut deck = new_deck();
-    use utils;
-    utils::shuffle(&mut deck);
+    crate::utils::shuffle(&mut deck);
     deck
 }
 

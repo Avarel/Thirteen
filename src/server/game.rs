@@ -1,4 +1,4 @@
-use cards::Card;
+use crate::cards::Card;
 use std::{collections::HashMap, fmt};
 use uuid::Uuid;
 
@@ -192,7 +192,7 @@ impl Game {
             unimplemented!("Attempting to start after game started or ended or zero players")
         }
 
-        use cards::sorted_partitioned_deck;
+        use crate::cards::sorted_partitioned_deck;
         self.players
             .values_mut()
             .zip(sorted_partitioned_deck().iter())

@@ -1,11 +1,11 @@
 use super::game::{Action, CurrentTurn, Event, Game, GameState, PassError, PlayError};
-use cards::Card;
+use crate::cards::Card;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::client::ClientHandler;
 use super::Server;
-use data::{ErrorCode, PlayerData, Request, Response, SuccessCode};
+use crate::data::{ErrorCode, PlayerData, Request, Response, SuccessCode};
 
 pub struct Instance {
     pub id: Uuid,
@@ -56,7 +56,7 @@ impl Instance {
             .collect();
 
         for p in &players {
-            use cards::Card;
+            use crate::cards::Card;
             let your_cards = self.game
                 .get_player(p.id)
                 .unwrap()

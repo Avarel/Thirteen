@@ -1,4 +1,5 @@
 use uuid::Uuid;
+use serde_derive::{Serialize, Deserialize};
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
