@@ -1,7 +1,0 @@
-/target/
-**/*.rs.bk
-Cargo.lock
-.DS_Store
-/front_end/node_modules/
-/front_end/target/
-/rls/
